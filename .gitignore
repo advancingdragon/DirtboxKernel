@@ -1,0 +1,17 @@
+# Vim temp files
+*.swp
+*.swo
+*~
+
+# Visual Studio temp files
+*.ncb
+*.suo
+*.user
+
+# Mac stuff
+.DS_Store
+
+# folders
+Debug/
+Release/
+
