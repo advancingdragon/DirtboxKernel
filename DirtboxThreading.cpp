@@ -1,4 +1,5 @@
 #include "Dirtbox.h"
+#include "Native.h"
 
 #define _CRT_SECURE_NO_WARNINGS
 
@@ -6,17 +7,6 @@
 
 static CRITICAL_SECTION ThreadingLock;
 static BOOL FreeDescriptors[MAXIMUM_XBOX_THREADS];
-
-DWORD __declspec(naked) WINAPI NtSetLdtEntries(DWORD Selector, LDT_ENTRY Entry, DWORD A, DWORD B, DWORD C)
-{
-    __asm
-    {
-        mov eax, 0xE9
-        mov edx, 0x7FFE0300
-        call dword ptr [edx]
-        ret 0x18
-    }
-}
 
 VOID Dirtbox::InitializeThreading()
 {
@@ -75,7 +65,7 @@ WORD Dirtbox::AllocateLdtEntry(DWORD Base, DWORD Limit)
     return Selector;
 }
 
-VOID Dirtbox::FreeLdtEntry(DWORD Selector)
+VOID Dirtbox::FreeLdtEntry(WORD Selector)
 {
     LDT_ENTRY LdtEntry;
 
@@ -105,14 +95,15 @@ VOID Dirtbox::AllocateTib()
 
     // Allocate LDT entry
     XBOX_TIB *XboxTib = (XBOX_TIB *)malloc(sizeof(XBOX_TIB));
-    memset((LPVOID)XboxTib, 0, sizeof(XBOX_TIB));
+    memset((PVOID)XboxTib, 0, sizeof(XBOX_TIB));
 
-    memcpy((LPVOID)&XboxTib->NtTib, (LPVOID)OldNtTib, sizeof(NT_TIB));
-    XboxTib->NtTib.ArbitraryUserPointer = (LPVOID)OldFs;
+    memcpy((PVOID)&XboxTib->NtTib, (PVOID)OldNtTib, sizeof(NT_TIB));
+    XboxTib->NtTib.ArbitraryUserPointer = (PVOID)OldFs;
     XboxTib->NtTib.Self = &XboxTib->NtTib;
 
     XboxTib->Self = XboxTib;
     XboxTib->Prcb = &XboxTib->PrcbData;
+    XboxTib->Irql = 0;
 
     NewFs = Dirtbox::AllocateLdtEntry((DWORD)XboxTib, (DWORD)XboxTib + sizeof(XBOX_TIB));
 
@@ -123,6 +114,22 @@ VOID Dirtbox::AllocateTib()
     }
 }
 
+// Assumes that we are in Windows TIB
 VOID Dirtbox::FreeTib()
 {
+    XBOX_TIB *XboxTib;
+    WORD Selector;
+
+    SwapTibs();
+    __asm
+    {
+        mov eax, fs:[0x1C]
+        mov XboxTib, eax
+        mov ax, fs
+        mov Selector, ax
+    }
+    SwapTibs();
+
+    free((PVOID)XboxTib);
+    FreeLdtEntry(Selector);
 }

@@ -1,10 +1,11 @@
-#ifndef DIRTBOX_KERNEL_H
-#define DIRTBOX_KERNEL_H
+#ifndef _DIRTBOX_H_
+#define _DIRTBOX_H_
 
 #include "DirtboxTypes.h"
 #include <stdio.h>
 
 #define EXPORT __declspec(dllexport)
+#define NAKED __declspec(naked)
 
 #define TRIGGER_ADDRESS     0x80000000
 #define REGISTER_BASE       0x84000000
@@ -26,6 +27,7 @@
 #define REG32(offset) (*(DWORD *)(REGISTER_BASE + (offset)))
 #define GPU_INST_ADDRESS(offset) (REGISTER_BASE + NV_GPU_INST + PADDING_SIZE + (offset))
 
+#define ENTRY_POINT_ADDR            0x00010128
 #define KERNEL_IMAGE_THUNK_ADDR     0x00010158
 #define DEBUG_KEY                   0xEFB1F152
 
@@ -41,7 +43,7 @@ namespace Dirtbox
     static inline DWORD MyVirtualAlloc(DWORD Address, DWORD Size)
     {
         return (DWORD)VirtualAlloc(
-            (LPVOID)Address, Size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE
+            (PVOID)Address, Size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE
         );
     }
 
@@ -57,95 +59,195 @@ namespace Dirtbox
     }
     VOID InitializeThreading();
     WORD AllocateLdtEntry(DWORD Base, DWORD Limit);
-    VOID FreeLdtEntry(DWORD Selector);
+    VOID FreeLdtEntry(WORD Selector);
     VOID AllocateTib();
     VOID FreeTib();
 
-    DWORD GraphicsThread(LPVOID Parameter);
+    DWORD GraphicsThread(PVOID Parameter);
     DWORD InitializeGraphics();
 
-    VOID EXPORT WINAPI _Initialize();
+    VOID EXPORT WINAPI Initialize();
 
-    LPVOID EXPORT NTAPI AvGetSavedDataAddress();
-    VOID EXPORT NTAPI AvSendTVEncoderOption(
-        LPVOID RegisterBase, DWORD Option, DWORD Param, LPDWORD Result
+    PVOID NTAPI AvGetSavedDataAddress();
+    VOID NTAPI AvSendTVEncoderOption(
+        PVOID RegisterBase, DWORD Option, DWORD Param, PDWORD Result
     );
-    DWORD EXPORT NTAPI AvSetDisplayMode(
-        LPVOID RegisterBase, DWORD Step, DWORD Mode, DWORD Format, 
+    DWORD NTAPI AvSetDisplayMode(
+        PVOID RegisterBase, DWORD Step, DWORD Mode, DWORD Format, 
         DWORD Pitch, DWORD FrameBuffer
     );
-    VOID EXPORT NTAPI AvSetSavedDataAddress(
-        LPVOID Address
+    VOID NTAPI AvSetSavedDataAddress(
+        PVOID Address
     );
-    NTSTATUS EXPORT NTAPI DbgPrint(
-        LPSTR Output
+    NTSTATUS NTAPI DbgPrint(
+        PSTR Output
     );
-    DWORD EXPORT NTAPI HalGetInterruptVector(
+    NTSTATUS NTAPI ExQueryNonVolatileSetting(
+        DWORD ValueIndex, DWORD *Type, PBYTE Value, SIZE_T ValueLength,
+        PSIZE_T ResultLength
+    );
+    extern DWORD HalDiskCachePartitionCount;
+    DWORD NTAPI HalGetInterruptVector(
         DWORD BusInterruptLevel, PKIRQL Irql
     );
-    VOID EXPORT NTAPI HalReadWritePCISpace(
-        DWORD BusNumber, DWORD SlotNumber, DWORD RegisterNumber, LPVOID Buffer, 
+    VOID NTAPI HalReadWritePCISpace(
+        DWORD BusNumber, DWORD SlotNumber, DWORD RegisterNumber, PVOID Buffer, 
         DWORD Length, BOOLEAN WritePCISpace
     );
-    VOID EXPORT NTAPI HalRegisterShutdownNotification(
+    VOID NTAPI HalRegisterShutdownNotification(
         PHAL_SHUTDOWN_REGISTRATION ShutdownRegistration, CHAR Register
     );
-    BOOLEAN EXPORT NTAPI KeConnectInterrupt(
+    VOID NTAPI HalReturnToFirmware(
+        RETURN_FIRMWARE Routine
+    );
+    NTSTATUS NTAPI IoCreateSymbolicLink(
+        PANSI_STRING SymbolicLinkName, PANSI_STRING DeviceName
+    );
+    NTSTATUS NTAPI IoDeleteSymbolicLink(
+        PANSI_STRING SymbolicLinkName
+    );
+    VOID NTAPI KeBugCheck(
+        DWORD BugCheckCode
+    );
+    BOOLEAN NTAPI KeConnectInterrupt(
         PKINTERRUPT Interrupt
     );
-    BOOLEAN EXPORT NTAPI KeDisconnectInterrupt(
+    NTSTATUS NTAPI KeDelayExecutionThread(
+        CHAR WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Interval
+    );
+    BOOLEAN NTAPI KeDisconnectInterrupt(
         PKINTERRUPT Interrupt
     );
-    VOID EXPORT NTAPI KeInitializeDpc(
-        PKDPC Dpc, PKDEFERRED_ROUTINE DeferredRoutine, LPVOID DeferredContext
+    VOID NTAPI KeInitializeDpc(
+        PKDPC Dpc, PKDEFERRED_ROUTINE DeferredRoutine, PVOID DeferredContext
     );
-    VOID EXPORT NTAPI KeInitializeInterrupt(
-        PKINTERRUPT Interrupt, PKSERVICE_ROUTINE ServiceRoutine, LPVOID ServiceContext, DWORD Vector,
+    VOID NTAPI KeInitializeInterrupt(
+        PKINTERRUPT Interrupt, PKSERVICE_ROUTINE ServiceRoutine, PVOID ServiceContext, DWORD Vector,
         KIRQL Irql, KINTERRUPT_MODE InterruptMode, BOOLEAN ShareVector
     );
-    BOOLEAN EXPORT NTAPI KeInsertQueueDpc(
-        PKDPC Dpc, LPVOID SystemArgument1, LPVOID SystemArgument2
+    VOID NTAPI KeInitializeTimerEx(
+        PKTIMER Timer, TIMER_TYPE Type
     );
-    LONG EXPORT NTAPI KeSetEvent(
+    BOOLEAN NTAPI KeInsertQueueDpc(
+        PKDPC Dpc, PVOID SystemArgument1, PVOID SystemArgument2
+    );
+    VOID NTAPI KeQuerySystemTime(
+        PLARGE_INTEGER CurrentTime
+    );
+    KIRQL NTAPI KeRaiseIrqlToDpcLevel();
+    LONG NTAPI KeSetEvent(
         PKEVENT Event, LONG Increment, CHAR Wait
     );
-    LONG EXPORT NTAPI KeWaitForSingleObject(
-        LPVOID Object, KWAIT_REASON WaitReason, CHAR WaitMode, CHAR Alertable, 
+    BOOLEAN NTAPI KeSetTimer(
+        PKTIMER Timer, LARGE_INTEGER DueTime, PKDPC Dpc
+    );
+    LONG NTAPI KeWaitForSingleObject(
+        PVOID Object, KWAIT_REASON WaitReason, CHAR WaitMode, CHAR Alertable, 
         PLARGE_INTEGER Timeout
     );
-    LPVOID EXPORT NTAPI MmClaimGpuInstanceMemory(
-        DWORD NumberOfBytes, LPDWORD NumberOfPaddingBytes
+    DWORD __fastcall KfLowerIrql(KIRQL NewIrql);
+    extern DWORD LaunchDataPage;
+    PVOID NTAPI MmAllocateContiguousMemory(
+        DWORD NumberOfBytes
     );
-    VOID EXPORT NTAPI MmFreeContiguousMemory(
-        LPVOID BaseAddress
+    PVOID NTAPI MmAllocateContiguousMemoryEx(
+        DWORD NumberOfBytes, DWORD LowestAcceptableAddress, DWORD HighestAcceptableAddress,
+        DWORD Alignment, DWORD ProtectionType
     );
-    VOID EXPORT NTAPI MmPersistContiguousMemory(
-        LPVOID BaseAddress, DWORD NumberOfBytes, BOOLEAN Persist
+    PVOID NTAPI MmClaimGpuInstanceMemory(
+        DWORD NumberOfBytes, PDWORD NumberOfPaddingBytes
     );
-    DWORD EXPORT NTAPI MmQueryAllocationSize(
-        LPVOID BaseAddress
+    VOID NTAPI MmFreeContiguousMemory(
+        PVOID BaseAddress
     );
-    NTSTATUS EXPORT NTAPI NtClose(
+    VOID NTAPI MmPersistContiguousMemory(
+        PVOID BaseAddress, DWORD NumberOfBytes, BOOLEAN Persist
+    );
+    DWORD NTAPI MmQueryAddressProtect(
+        PVOID VirtualAddress
+    );
+    DWORD NTAPI MmQueryAllocationSize(
+        PVOID BaseAddress
+    );
+    DWORD NTAPI MmSetAddressProtect(
+        PVOID BaseAddress, DWORD NumberOfBytes, DWORD NewProtect
+    );
+    NTSTATUS NTAPI NtAllocateVirtualMemory(
+        PVOID *BaseAddress, DWORD ZeroBits, PDWORD AllocationSize, DWORD AllocationType,
+        DWORD Protect
+    );
+    NTSTATUS NTAPI NtClose(
         HANDLE Handle
     );
-    NTSTATUS EXPORT NTAPI NtCreateFile(
-        PHANDLE FileHandle, DWORD DesiredAccess, LPVOID ObjectAttributes, LPVOID IoStatusBlock,
-        PLARGE_INTEGER AllocationSize, DWORD FileAttributes, DWORD ShareAccess, DWORD CreateDisposition, 
-        DWORD CreateOptions 
+    NTSTATUS NTAPI NtCreateFile(
+        PHANDLE FileHandle, DWORD DesiredAccess, PXBOX_OBJECT_ATTRIBUTES ObjectAttributes, 
+        PIO_STATUS_BLOCK IoStatusBlock, PLARGE_INTEGER AllocationSize, DWORD FileAttributes, 
+        DWORD ShareAccess, DWORD CreateDisposition, DWORD CreateOptions 
     );
-    NTSTATUS EXPORT NTAPI NtReadFile(
-        HANDLE FileHandle, HANDLE Event, LPVOID ApcRoutine, LPVOID ApcContext,
-        LPVOID IoStatusBlock, LPVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
+    NTSTATUS NTAPI NtDeviceIoControlFile(
+        HANDLE FileHandle, PKEVENT Event, PVOID ApcRoutine, PVOID ApcContext, 
+        PIO_STATUS_BLOCK IoStatusBlock, DWORD IoControlCode, PVOID InputBuffer, DWORD InputBufferLength, 
+        PVOID OutputBuffer, DWORD OutputBufferLength
     );
-    NTSTATUS EXPORT NTAPI NtSetInformationFile(
-        HANDLE FileHandle, LPVOID IoStatusBlock, LPVOID FileInformation, DWORD Length, 
+    NTSTATUS NTAPI NtFlushBuffersFile(
+        HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock
+    );
+    NTSTATUS NTAPI NtFreeVirtualMemory(
+        PVOID *BaseAddress, PDWORD FreeSize, DWORD FreeType
+    );
+    NTSTATUS NTAPI NtFsControlFile(
+        HANDLE FileHandle, PKEVENT Event, PVOID ApcRoutine, PVOID ApcContext, 
+        PIO_STATUS_BLOCK IoStatusBlock, DWORD IoControlCode, PVOID InputBuffer, DWORD InputBufferLength, 
+        PVOID OutputBuffer, DWORD OutputBufferLength
+    );
+    NTSTATUS NTAPI NtOpenFile(
+        PHANDLE FileHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes,
+        PIO_STATUS_BLOCK IoStatusBlock, DWORD ShareAccess, DWORD OpenOptions
+    );
+    NTSTATUS NTAPI NtOpenSymbolicLinkObject(
+        PHANDLE LinkHandle, POBJECT_ATTRIBUTES ObjectAttributes
+    );
+    NTSTATUS NTAPI NtQueryInformationFile(
+        HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FileInformation, DWORD Length, 
+        PFILE_INFORMATION_CLASS FileInformationClass
+    );
+    NTSTATUS NTAPI NtQuerySymbolicLinkObject(
+        HANDLE LinkHandle, PSTR *LinkTarget, PDWORD ReturnedLength
+    );
+    NTSTATUS NTAPI NtQueryVirtualMemory(
+        PVOID BaseAddress, PMEMORY_BASIC_INFORMATION MemoryInformation
+    );
+    NTSTATUS NTAPI NtQueryVolumeInformationFile(
+        HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FsInformation, DWORD Length, 
+        DWORD FsInformationClass
+    );
+    NTSTATUS NTAPI NtReadFile(
+        HANDLE FileHandle, HANDLE Event, PVOID ApcRoutine, PVOID ApcContext,
+        PVOID IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
+    );
+    NTSTATUS NTAPI NtSetInformationFile(
+        HANDLE FileHandle, PVOID IoStatusBlock, PVOID FileInformation, DWORD Length, 
         DWORD FileInformationClass
     );
-    NTSTATUS EXPORT NTAPI NtWriteFile( 
-        HANDLE FileHandle, LPVOID Event, LPVOID ApcRoutine, LPVOID ApcContext,
-        LPVOID IoStatusBlock, LPVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
+    NTSTATUS NTAPI NtWaitForSingleObject(
+        HANDLE Handle, BOOLEAN Alertable, PLARGE_INTEGER Timeout
     );
-    extern XBOX_HARDWARE_INFO EXPORT XboxHardwareInfo;
+    NTSTATUS NTAPI NtWaitForSingleObjectEx(
+        HANDLE Handle, CHAR WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Timeout
+    );
+    NTSTATUS NTAPI NtWriteFile( 
+        HANDLE FileHandle, PVOID Event, PVOID ApcRoutine, PVOID ApcContext,
+        PVOID IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
+    );
+    NTSTATUS NTAPI PsCreateSystemThreadEx(
+        PHANDLE ThreadHandle, DWORD ThreadExtraSize, DWORD KernelStackSize, DWORD TlsDataSize, 
+        PDWORD ThreadId, PVOID StartContext1, PVOID StartContext2, BOOLEAN CreateSuspended,
+        BOOLEAN DebugStack, PKSTART_ROUTINE StartRoutine
+    );
+    VOID NTAPI PsTerminateSystemThread(
+        NTSTATUS ExitStatus
+    );
+    extern XBOX_HARDWARE_INFO XboxHardwareInfo;
 }
 
 #endif

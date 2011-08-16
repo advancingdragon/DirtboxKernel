@@ -4,7 +4,7 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 
-DWORD Dirtbox::GraphicsThread(LPVOID Parameter)
+DWORD Dirtbox::GraphicsThread(PVOID Parameter)
 {
     while (TRUE)
     {
@@ -42,7 +42,7 @@ DWORD Dirtbox::InitializeGraphics()
     REG32(NV_PFIFO_CACHE1_STATUS) = 0x10;
     REG32(USER_NV_USER_ADDRESS) = REGISTER_BASE + NV_USER;
 
-    CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)&Dirtbox::GraphicsThread, 0, 0, NULL);
+    CreateThread(NULL, 0, (PTHREAD_START_ROUTINE)&Dirtbox::GraphicsThread, 0, 0, NULL);
 
     DEBUG_PRINT("Dirtbox graphics initialized successfully.\n");
     return 0;

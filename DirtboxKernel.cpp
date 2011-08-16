@@ -1,42 +1,15 @@
 #include "Dirtbox.h"
+#include "Native.h"
 
 #define _CRT_SECURE_NO_WARNINGS
 
-BOOL WINAPI DllMain(
-    HINSTANCE hInstDll, DWORD fdwReason, LPVOID fImpLoad
-)
-{
-    return TRUE;
-}
-
-VOID WINAPI Dirtbox::_Initialize()
-{
-    /*
-    MessageBoxA(NULL, "Dongs\n", "Dongs", MB_OK);
-    DWORD *KernelImageThunk = (DWORD *)(*(DWORD *)KERNEL_IMAGE_THUNK_ADDR ^ DEBUG_KEY);
-
-    DWORD thunk;
-    for (int i = 0; thunk = KernelImageThunk[i] & 0x7FFFFFFF, thunk != NULL; i++)
-    {
-    }
-    return 0;
-    */
-    Dirtbox::InitializeThreading();
-    Dirtbox::AllocateTib();
-    AddVectoredExceptionHandler(1, &Dirtbox::ExceptionHandler);
-    if (Dirtbox::InitializeGraphics() != 0)
-    {
-        exit(1);
-    }
-    // TODO: Call main routine
-    SwapTibs();
-}
-
+DWORD Dirtbox::HalDiskCachePartitionCount = 3;
 XBOX_HARDWARE_INFO Dirtbox::XboxHardwareInfo;
+DWORD Dirtbox::LaunchDataPage;
 
-static LPVOID AvpSavedDataAddress = (LPVOID)0;
+static PVOID AvpSavedDataAddress = (PVOID)0;
 
-LPVOID NTAPI Dirtbox::AvGetSavedDataAddress()
+PVOID NTAPI Dirtbox::AvGetSavedDataAddress()
 {
     SwapTibs();
 
@@ -47,7 +20,7 @@ LPVOID NTAPI Dirtbox::AvGetSavedDataAddress()
 }
 
 VOID NTAPI Dirtbox::AvSendTVEncoderOption(
-    LPVOID RegisterBase, DWORD Option, DWORD Param, LPDWORD Result
+    PVOID RegisterBase, DWORD Option, DWORD Param, PDWORD Result
 )
 {
     SwapTibs();
@@ -55,14 +28,14 @@ VOID NTAPI Dirtbox::AvSendTVEncoderOption(
     DEBUG_PRINT("AvSendTVEncoderOption: 0x%08x %i %i\n", 
         RegisterBase, Option, Param);
 
-    if (Result != (LPDWORD)0)
+    if (Result != (PDWORD)0)
         *Result = 0;
 
     SwapTibs();
 }
 
 DWORD NTAPI Dirtbox::AvSetDisplayMode(
-    LPVOID RegisterBase, DWORD Step, DWORD Mode, DWORD Format, 
+    PVOID RegisterBase, DWORD Step, DWORD Mode, DWORD Format, 
     DWORD Pitch, DWORD FrameBuffer
 )
 {
@@ -75,7 +48,7 @@ DWORD NTAPI Dirtbox::AvSetDisplayMode(
 }
 
 VOID NTAPI Dirtbox::AvSetSavedDataAddress(
-    LPVOID Address
+    PVOID Address
 )
 {
     SwapTibs();
@@ -89,7 +62,7 @@ VOID NTAPI Dirtbox::AvSetSavedDataAddress(
 }
 
 NTSTATUS NTAPI Dirtbox::DbgPrint(
-    LPSTR Output
+    PSTR Output
 )
 {
     SwapTibs();
@@ -97,8 +70,32 @@ NTSTATUS NTAPI Dirtbox::DbgPrint(
     DEBUG_PRINT("DbgPrint: %s\n", Output);
 
     SwapTibs();
-
     return 0;
+}
+
+// export 24
+NTSTATUS NTAPI Dirtbox::ExQueryNonVolatileSetting(
+    DWORD ValueIndex, DWORD *Type, PBYTE Value, SIZE_T ValueLength,
+    PSIZE_T ResultLength
+)
+{
+    SwapTibs();
+
+    DEBUG_PRINT("ExQueryNonVolatileSetting: %i ...\n", ValueIndex);
+
+    SwapTibs();
+
+    switch(ValueIndex)
+    {
+    case 7: // Language
+        *(DWORD *)Value = 1;
+        return 0;
+    case 10: // Parental control setting
+        *(DWORD *)Value = 0;
+        return 0;
+    default:
+        return -1;
+    }
 }
 
 DWORD NTAPI Dirtbox::HalGetInterruptVector(
@@ -122,7 +119,7 @@ DWORD NTAPI Dirtbox::HalGetInterruptVector(
 }
 
 VOID NTAPI Dirtbox::HalReadWritePCISpace(
-    DWORD BusNumber, DWORD SlotNumber, DWORD RegisterNumber, LPVOID Buffer, 
+    DWORD BusNumber, DWORD SlotNumber, DWORD RegisterNumber, PVOID Buffer, 
     DWORD Length, BOOLEAN WritePCISpace
 )
 {
@@ -153,6 +150,61 @@ VOID NTAPI Dirtbox::HalRegisterShutdownNotification(
     SwapTibs();
 }
 
+VOID NTAPI Dirtbox::HalReturnToFirmware(
+    RETURN_FIRMWARE Routine
+)
+{
+    SwapTibs();
+
+    DEBUG_PRINT("HalReturnToFirmware: 0x%x\n", 
+        Routine);
+
+    ExitProcess(0);
+}
+
+NTSTATUS NTAPI Dirtbox::IoCreateSymbolicLink(
+    PANSI_STRING SymbolicLinkName,
+    PANSI_STRING DeviceName
+)
+{
+    SwapTibs();
+
+    DEBUG_PRINT("IoCreateSymbolicLink: %s %s\n", 
+        SymbolicLinkName->Buffer, DeviceName->Buffer);
+
+    // TODO
+
+    SwapTibs();
+    return 0;
+}
+
+NTSTATUS NTAPI Dirtbox::IoDeleteSymbolicLink(
+    PANSI_STRING SymbolicLinkName
+)
+{
+    SwapTibs();
+
+    DEBUG_PRINT("IoDeleteSymbolicLink: %s %s\n", 
+        SymbolicLinkName->Buffer);
+
+    // TODO
+
+    SwapTibs();
+    return 0;
+}
+
+VOID NTAPI Dirtbox::KeBugCheck(
+    DWORD BugCheckCode
+)
+{
+    SwapTibs();
+
+    DEBUG_PRINT("KeBugCheck: %i\n", 
+        BugCheckCode);
+
+    ExitProcess(1);
+}
+
 BOOLEAN NTAPI Dirtbox::KeConnectInterrupt(
     PKINTERRUPT Interrupt
 )
@@ -174,6 +226,21 @@ BOOLEAN NTAPI Dirtbox::KeConnectInterrupt(
 
     SwapTibs();
     return FALSE;
+}
+
+NTSTATUS NTAPI Dirtbox::KeDelayExecutionThread(
+    CHAR WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Interval
+)
+{
+    SwapTibs();
+
+    DEBUG_PRINT("KeDelayExecutionThread: %i %i 0x%08x\n", 
+        WaitMode, Alertable, Interval);
+
+    NTSTATUS Ret = ::NtDelayExecution(Alertable, Interval);
+
+    SwapTibs();
+    return Ret;
 }
 
 BOOLEAN NTAPI Dirtbox::KeDisconnectInterrupt(
@@ -200,7 +267,7 @@ BOOLEAN NTAPI Dirtbox::KeDisconnectInterrupt(
 }
 
 VOID NTAPI Dirtbox::KeInitializeDpc(
-    PKDPC Dpc, PKDEFERRED_ROUTINE DeferredRoutine, LPVOID DeferredContext
+    PKDPC Dpc, PKDEFERRED_ROUTINE DeferredRoutine, PVOID DeferredContext
 )
 {
     SwapTibs();
@@ -217,7 +284,7 @@ VOID NTAPI Dirtbox::KeInitializeDpc(
 }
 
 VOID NTAPI Dirtbox::KeInitializeInterrupt(
-    PKINTERRUPT Interrupt, PKSERVICE_ROUTINE ServiceRoutine, LPVOID ServiceContext, DWORD Vector,
+    PKINTERRUPT Interrupt, PKSERVICE_ROUTINE ServiceRoutine, PVOID ServiceContext, DWORD Vector,
     KIRQL Irql, KINTERRUPT_MODE InterruptMode, BOOLEAN ShareVector
 )
 {
@@ -236,8 +303,29 @@ VOID NTAPI Dirtbox::KeInitializeInterrupt(
     SwapTibs();
 }
 
+VOID NTAPI Dirtbox::KeInitializeTimerEx(
+    PKTIMER Timer, TIMER_TYPE Type
+)
+{
+    SwapTibs();
+
+    DEBUG_PRINT("KeInitializeTimerEx: %i %i 0x%08x\n", 
+        Timer, Type);
+
+    Timer->Header.Type = Type + 8;
+    Timer->Header.Inserted = 0;
+    Timer->Header.Size = 10;
+    Timer->Header.SignalState = 0;
+    Timer->Header.WaitListHead.Blink = &Timer->Header.WaitListHead;
+    Timer->Header.WaitListHead.Flink = &Timer->Header.WaitListHead;
+    Timer->DueTime.QuadPart = 0L;
+    Timer->Period = 0;
+
+    SwapTibs();
+}
+
 BOOLEAN NTAPI Dirtbox::KeInsertQueueDpc(
-    PKDPC Dpc, LPVOID SystemArgument1, LPVOID SystemArgument2
+    PKDPC Dpc, PVOID SystemArgument1, PVOID SystemArgument2
 )
 {
     SwapTibs();
@@ -259,6 +347,42 @@ BOOLEAN NTAPI Dirtbox::KeInsertQueueDpc(
     return FALSE;
 }
 
+VOID NTAPI Dirtbox::KeQuerySystemTime(
+    PLARGE_INTEGER CurrentTime
+)
+{
+    SwapTibs();
+
+    DEBUG_PRINT("KeQuerySystemTime: 0x%08x\n",
+        CurrentTime);
+
+    SYSTEMTIME SystemTime;
+    GetSystemTime(&SystemTime);
+    SystemTimeToFileTime(&SystemTime, (FILETIME*)CurrentTime);
+
+    SwapTibs();
+}
+
+KIRQL NTAPI Dirtbox::KeRaiseIrqlToDpcLevel()
+{
+    XBOX_TIB *XboxTib;
+    __asm
+    {
+        mov eax, fs:[0x1C]
+        mov XboxTib, eax
+    }
+
+    SwapTibs();
+
+    DEBUG_PRINT("KeRaiseIrqlToDpcLevel\n");
+
+    KIRQL OldIrql = (KIRQL)XboxTib->Irql;
+    XboxTib->Irql = 2;
+
+    SwapTibs();
+    return OldIrql;
+}
+
 LONG NTAPI Dirtbox::KeSetEvent(
     PKEVENT Event, LONG Increment, CHAR Wait
 )
@@ -272,8 +396,21 @@ LONG NTAPI Dirtbox::KeSetEvent(
     return 1;
 }
 
+BOOLEAN NTAPI Dirtbox::KeSetTimer(
+    PKTIMER Timer, LARGE_INTEGER DueTime, PKDPC Dpc
+)
+{
+    SwapTibs();
+
+    DEBUG_PRINT("KeSetTimer: 0x%08x 0x%08x 0x%08x\n",
+        Timer, DueTime, Dpc);
+
+    SwapTibs();
+    return 1;
+}
+
 LONG NTAPI Dirtbox::KeWaitForSingleObject(
-    LPVOID Object, KWAIT_REASON WaitReason, CHAR WaitMode, CHAR Alertable, 
+    PVOID Object, KWAIT_REASON WaitReason, CHAR WaitMode, CHAR Alertable, 
     PLARGE_INTEGER Timeout
 )
 {
@@ -286,8 +423,69 @@ LONG NTAPI Dirtbox::KeWaitForSingleObject(
     return 0;
 }
 
-LPVOID NTAPI Dirtbox::MmClaimGpuInstanceMemory(
-    DWORD NumberOfBytes, LPDWORD NumberOfPaddingBytes
+DWORD __fastcall Dirtbox::KfLowerIrql(KIRQL NewIrql)
+{
+    XBOX_TIB *XboxTib;
+    __asm
+    {
+        mov eax, fs:[0x1C]
+        mov XboxTib, eax
+    }
+
+    SwapTibs();
+
+    DEBUG_PRINT("KfLowerIrql: %i\n", NewIrql);
+
+    XboxTib->Irql = NewIrql;
+
+    SwapTibs();
+    return 0;
+}
+
+PVOID NTAPI Dirtbox::MmAllocateContiguousMemory(
+    DWORD NumberOfBytes
+)
+{
+    return MmAllocateContiguousMemoryEx(NumberOfBytes, 0, 0xFFFFFFFFu, 0, PAGE_READWRITE);
+}
+
+PVOID NTAPI Dirtbox::MmAllocateContiguousMemoryEx(
+    DWORD NumberOfBytes, DWORD LowestAcceptableAddress, DWORD HighestAcceptableAddress,
+    DWORD Alignment, DWORD ProtectionType
+)
+{
+    SwapTibs();
+
+    DEBUG_PRINT("MmAllocateContiguousMemoryEx: 0x%x 0x%08x 0x%08x 0x%x 0x%08x\n",
+        NumberOfBytes, LowestAcceptableAddress, HighestAcceptableAddress, Alignment, ProtectionType);
+
+    PVOID Buf;
+    DWORD AlignmentMask = ~(Alignment - 1);
+    DWORD StartAddress;
+    DWORD EndAddress;
+    if (HighestAcceptableAddress == 0xFFFFFFFF)
+        EndAddress = 0x83FD6000;
+    else
+        EndAddress = HighestAcceptableAddress | 0x80000000;
+
+    while (TRUE)
+    {
+        StartAddress = (EndAddress - NumberOfBytes) & AlignmentMask;
+        if (StartAddress < (LowestAcceptableAddress | 0x80000000))
+            break;
+        Buf = VirtualAlloc((PVOID)StartAddress, NumberOfBytes, 
+            MEM_COMMIT | MEM_RESERVE, ProtectionType);
+        EndAddress -= Alignment;
+        if (Buf != NULL)
+            break;
+    }
+
+    SwapTibs();
+    return Buf;
+}
+
+PVOID NTAPI Dirtbox::MmClaimGpuInstanceMemory(
+    DWORD NumberOfBytes, PDWORD NumberOfPaddingBytes
 )
 {
     SwapTibs();
@@ -299,12 +497,17 @@ LPVOID NTAPI Dirtbox::MmClaimGpuInstanceMemory(
     if (NumberOfBytes == 0xFFFFFFFF)
         NumberOfBytes = GPU_INST_SIZE;
 
+    // A hack since we're not actually returning the memory at the
+    // end of physical space, but the "virtual GPU memory address."
+    // Hence why I selected as 0x84000000 as new register base.
+    DWORD Res = REGISTER_BASE + NV_GPU_INST + PADDING_SIZE + GPU_INST_SIZE;
+
     SwapTibs();
-    return (LPVOID)(REGISTER_BASE + NV_GPU_INST + PADDING_SIZE + GPU_INST_SIZE);
+    return (PVOID)Res;
 }
 
 VOID NTAPI Dirtbox::MmFreeContiguousMemory(
-    LPVOID BaseAddress
+    PVOID BaseAddress
 )
 {
     SwapTibs();
@@ -318,7 +521,7 @@ VOID NTAPI Dirtbox::MmFreeContiguousMemory(
 }
 
 VOID NTAPI Dirtbox::MmPersistContiguousMemory(
-    LPVOID BaseAddress, DWORD NumberOfBytes, BOOLEAN Persist
+    PVOID BaseAddress, DWORD NumberOfBytes, BOOLEAN Persist
 )
 {
     SwapTibs();
@@ -326,13 +529,29 @@ VOID NTAPI Dirtbox::MmPersistContiguousMemory(
     DEBUG_PRINT("MmPersistContiguousMemory: 0x%08x 0x%x %i\n",
         BaseAddress, NumberOfBytes, Persist);
 
-    Dirtbox::MyVirtualAlloc((DWORD)BaseAddress, NumberOfBytes);
-    
+    // Not sure if we need to implement this
+
     SwapTibs();
 }
 
+DWORD NTAPI Dirtbox::MmQueryAddressProtect(
+    PVOID VirtualAddress
+)
+{
+    SwapTibs();
+
+    DEBUG_PRINT("MmQueryAddressProtect: 0x%08x\n",
+        VirtualAddress);
+
+    MEMORY_BASIC_INFORMATION MemInfo;
+    VirtualQuery(VirtualAddress, &MemInfo, sizeof(MEMORY_BASIC_INFORMATION));
+
+    SwapTibs();
+    return MemInfo.Protect;
+}
+
 DWORD NTAPI Dirtbox::MmQueryAllocationSize(
-    LPVOID BaseAddress
+    PVOID BaseAddress
 )
 {
     SwapTibs();
@@ -347,64 +566,254 @@ DWORD NTAPI Dirtbox::MmQueryAllocationSize(
     return MemInfo.RegionSize;
 }
 
+DWORD NTAPI Dirtbox::MmSetAddressProtect(
+    PVOID BaseAddress, DWORD NumberOfBytes, DWORD NewProtect
+)
+{
+    SwapTibs();
+
+    DEBUG_PRINT("MmSetAddressProtect: 0x%08x 0x%x 0x%08x\n",
+        BaseAddress, NumberOfBytes, NewProtect);
+
+    DWORD Dummy;
+    DWORD Res = VirtualProtect(BaseAddress, NumberOfBytes, NewProtect, &Dummy);
+
+    SwapTibs();
+    return Res;
+}
+
+NTSTATUS NTAPI Dirtbox::NtAllocateVirtualMemory(
+    PVOID *BaseAddress, DWORD ZeroBits, PDWORD AllocationSize, DWORD AllocationType,
+    DWORD Protect
+)
+{
+    SwapTibs();
+
+    DEBUG_PRINT("NtAllocateVirtualMemory: 0x%08x 0x%x 0x%x 0x%x 0x%x\n",
+        BaseAddress, ZeroBits, *AllocationSize, AllocationType, Protect);
+
+    NTSTATUS Res = ::NtAllocateVirtualMemory(
+        GetCurrentProcess(), BaseAddress, ZeroBits, AllocationSize, 
+        AllocationType, Protect);
+    
+    SwapTibs();
+    return Res;
+}
+
 NTSTATUS NTAPI Dirtbox::NtClose(
     HANDLE Handle
+)
+{
+    SwapTibs();
+
+    DEBUG_PRINT("NtClose: 0x%x",
+        Handle);
+
+    NTSTATUS Res = CloseHandle(Handle);
+
+    SwapTibs();
+    return Res;
+}
+
+NTSTATUS NTAPI Dirtbox::NtCreateFile(
+    PHANDLE FileHandle, DWORD DesiredAccess, PXBOX_OBJECT_ATTRIBUTES ObjectAttributes, 
+    PIO_STATUS_BLOCK IoStatusBlock, PLARGE_INTEGER AllocationSize, DWORD FileAttributes, 
+    DWORD ShareAccess, DWORD CreateDisposition, DWORD CreateOptions 
+)
+{
+    NTSTATUS Res;
+
+    SwapTibs();
+
+    DEBUG_PRINT("NtCreateFile: 0x%08x 0x%x 0x%08x 0x%08x 0x%08x 0x%x 0x%x 0x%x 0x%x\n",
+        FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock,
+        AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions);
+
+    CHAR Buffer[256];
+    strncpy(Buffer, ObjectAttributes->ObjectName->Buffer, 256);
+
+    // TODO: Patch drives to directories
+
+    // RtlInitUnicodeString
+    WCHAR UnicodeBuffer[256];
+    UNICODE_STRING UnicodeString;
+    mbstowcs(UnicodeBuffer, Buffer, 256);
+    UnicodeString.Length = wcslen(UnicodeBuffer) * sizeof(WCHAR);
+    UnicodeString.MaximumLength = sizeof(UnicodeBuffer);
+    UnicodeString.Buffer = UnicodeBuffer;
+
+    OBJECT_ATTRIBUTES NtObjectAttributes;
+    NtObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
+    NtObjectAttributes.ObjectName = &UnicodeString;
+    NtObjectAttributes.Attributes = ObjectAttributes->Attributes;
+    NtObjectAttributes.RootDirectory = ObjectAttributes->RootDirectory;
+    NtObjectAttributes.SecurityDescriptor = NULL;
+    Res = ::NtCreateFile(
+        FileHandle, DesiredAccess, &NtObjectAttributes, IoStatusBlock, 
+        AllocationSize, FileAttributes, ShareAccess, CreateDisposition, 
+        CreateOptions, NULL, 0
+    );
+
+    SwapTibs();
+    return Res;
+}
+
+NTSTATUS NTAPI Dirtbox::NtDeviceIoControlFile(
+    HANDLE FileHandle, PKEVENT Event, PVOID ApcRoutine, PVOID ApcContext, 
+    PIO_STATUS_BLOCK IoStatusBlock, DWORD IoControlCode, PVOID InputBuffer, DWORD InputBufferLength, 
+    PVOID OutputBuffer, DWORD OutputBufferLength)
+{
+    SwapTibs();
+
+    DEBUG_PRINT("NtDeviceIoControlFile: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%x " 
+        "0x%08x 0x%x 0x%08x 0x%x\n",
+        FileHandle, Event, ApcRoutine, ApcContext,
+        IoStatusBlock, IoControlCode, InputBuffer, InputBufferLength,
+        OutputBuffer, OutputBufferLength);
+
+    // TODO: Send information out
+
+    SwapTibs();
+    return 0;
+}
+
+NTSTATUS NTAPI Dirtbox::NtFlushBuffersFile(
+    HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock
 )
 {
     return 0;
 }
 
-NTSTATUS NTAPI Dirtbox::NtCreateFile(
-    PHANDLE FileHandle, DWORD DesiredAccess, LPVOID ObjectAttributes, LPVOID IoStatusBlock, 
-    PLARGE_INTEGER AllocationSize, DWORD FileAttributes, DWORD ShareAccess, 
-    DWORD CreateDisposition, DWORD CreateOptions 
+NTSTATUS NTAPI Dirtbox::NtFreeVirtualMemory(
+    PVOID *BaseAddress, PDWORD FreeSize, DWORD FreeType
+)
+{
+    SwapTibs();
+
+    DEBUG_PRINT("NtFreeVirtualMemory: 0x%08x 0x%08x 0x%x\n", 
+        BaseAddress, FreeSize, FreeType);
+
+    NTSTATUS Res = ::NtFreeVirtualMemory(
+        GetCurrentProcess(), BaseAddress, FreeSize, FreeType
+    );
+
+    SwapTibs();
+    return Res;
+}
+
+NTSTATUS NTAPI Dirtbox::NtFsControlFile(
+    HANDLE FileHandle, PKEVENT Event, PVOID ApcRoutine, PVOID ApcContext, 
+    PIO_STATUS_BLOCK IoStatusBlock, DWORD IoControlCode, PVOID InputBuffer, DWORD InputBufferLength, 
+    PVOID OutputBuffer, DWORD OutputBufferLength
+)
+{
+    return 0;
+}
+
+NTSTATUS NTAPI Dirtbox::NtOpenFile(
+    PHANDLE FileHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes,
+    PIO_STATUS_BLOCK IoStatusBlock, DWORD ShareAccess, DWORD OpenOptions
+)
+{
+    return 0;
+}
+
+NTSTATUS NTAPI Dirtbox::NtOpenSymbolicLinkObject(
+    PHANDLE LinkHandle, POBJECT_ATTRIBUTES ObjectAttributes
+)
+{
+    return 0;
+}
+
+NTSTATUS NTAPI Dirtbox::NtQueryInformationFile(
+    HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FileInformation, DWORD Length, 
+    PFILE_INFORMATION_CLASS FileInformationClass
+)
+{
+    return 0;
+}
+
+NTSTATUS NTAPI Dirtbox::NtQuerySymbolicLinkObject(
+    HANDLE LinkHandle, PSTR *LinkTarget, PDWORD ReturnedLength
+)
+{
+    return 0;
+}
+
+NTSTATUS NTAPI Dirtbox::NtQueryVirtualMemory(
+    PVOID BaseAddress, PMEMORY_BASIC_INFORMATION MemoryInformation
+)
+{
+    SwapTibs();
+
+    DEBUG_PRINT("NtQueryVirtualMemory: 0x%08x 0x%08x\n",
+        BaseAddress, MemoryInformation);
+
+    NTSTATUS Res = VirtualQuery(
+        BaseAddress, MemoryInformation, sizeof(MEMORY_BASIC_INFORMATION)
+    );
+
+    SwapTibs();
+    return Res;
+}
+
+NTSTATUS NTAPI Dirtbox::NtQueryVolumeInformationFile(
+    HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FsInformation, DWORD Length, 
+    DWORD FsInformationClass
 )
 {
     return 0;
 }
 
 NTSTATUS NTAPI Dirtbox::NtReadFile(
-    HANDLE FileHandle, HANDLE Event, LPVOID ApcRoutine, LPVOID ApcContext,
-    LPVOID IoStatusBlock, LPVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
+    HANDLE FileHandle, HANDLE Event, PVOID ApcRoutine, PVOID ApcContext,
+    PVOID IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
 )
 {
     return 0;
 }
 
 NTSTATUS NTAPI Dirtbox::NtSetInformationFile(
-    HANDLE FileHandle, LPVOID IoStatusBlock, LPVOID FileInformation, DWORD Length, 
+    HANDLE FileHandle, PVOID IoStatusBlock, PVOID FileInformation, DWORD Length, 
     DWORD FileInformationClass
 )
 {
     return 0;
 }
 
-NTSTATUS NTAPI Dirtbox::NtWriteFile( 
-    HANDLE FileHandle, LPVOID Event, LPVOID ApcRoutine, LPVOID ApcContext,
-    LPVOID IoStatusBlock, LPVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
+NTSTATUS NTAPI Dirtbox::NtWaitForSingleObject(
+    HANDLE Handle, BOOLEAN Alertable, PLARGE_INTEGER Timeout
+)
+{
+    return NtWaitForSingleObjectEx(Handle, 0, Alertable, Timeout);
+}
+
+NTSTATUS NTAPI Dirtbox::NtWaitForSingleObjectEx(
+    HANDLE Handle, CHAR WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Timeout
 )
 {
     return 0;
 }
 
-/*
-// export 24
-NTSTATUS NTAPI Dirtbox::ExQueryNonVolatileSetting(
-    DWORD ValueIndex, DWORD *Type, PBYTE Value, SIZE_T ValueLength,
-    PSIZE_T ResultLength
+NTSTATUS NTAPI Dirtbox::NtWriteFile( 
+    HANDLE FileHandle, PVOID Event, PVOID ApcRoutine, PVOID ApcContext,
+    PVOID IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
 )
 {
-    switch(ValueIndex)
-    {
-    case 7: // Language
-        *(DWORD *)Value = 1;
-        return 0;
-    case 10: // Parental control setting
-        *(DWORD *)Value = 0;
-        return 0;
-    default:
-        return -1;
-    }
+    return 0;
 }
 
-*/
+NTSTATUS NTAPI Dirtbox::PsCreateSystemThreadEx(
+    PHANDLE ThreadHandle, DWORD ThreadExtraSize, DWORD KernelStackSize, DWORD TlsDataSize, 
+    PDWORD ThreadId, PVOID StartContext1, PVOID StartContext2, BOOLEAN CreateSuspended,
+    BOOLEAN DebugStack, PKSTART_ROUTINE StartRoutine
+)
+{
+    return 0;
+}
+
+VOID NTAPI Dirtbox::PsTerminateSystemThread(
+    NTSTATUS ExitStatus
+)
+{
+}
