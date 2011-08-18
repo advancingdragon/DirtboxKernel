@@ -7,6 +7,10 @@
 #define EXPORT __declspec(dllexport)
 #define NAKED __declspec(naked)
 
+#define ENTRY_POINT_ADDR            0x00010128
+#define KERNEL_IMAGE_THUNK_ADDR     0x00010158
+#define DEBUG_KEY                   0xEFB1F152
+
 #define TRIGGER_ADDRESS     0x80000000
 #define REGISTER_BASE       0x84000000
 
@@ -27,9 +31,11 @@
 #define REG32(offset) (*(DWORD *)(REGISTER_BASE + (offset)))
 #define GPU_INST_ADDRESS(offset) (REGISTER_BASE + NV_GPU_INST + PADDING_SIZE + (offset))
 
-#define ENTRY_POINT_ADDR            0x00010128
-#define KERNEL_IMAGE_THUNK_ADDR     0x00010158
-#define DEBUG_KEY                   0xEFB1F152
+#define STATUS_SUCCESS               ((NTSTATUS)0x00000000L)
+#define STATUS_OBJECT_NAME_COLLISION ((NTSTATUS)0xC0000035L)
+#define STATUS_NOT_A_DIRECTORY       ((NTSTATUS)0xC0000103L)
+
+#define OB_DOS_DEVICES ((HANDLE) 0xFFFFFFFD)
 
 #define DEBUG_PRINT(str, ...) \
     do \
@@ -47,8 +53,10 @@ namespace Dirtbox
         );
     }
 
+    // DirtboxException.cpp
     LONG WINAPI ExceptionHandler(PEXCEPTION_POINTERS ExceptionInfo);
 
+    // DirtboxThreading.cpp
     static inline void SwapTibs()
     {
         __asm
@@ -63,11 +71,11 @@ namespace Dirtbox
     VOID AllocateTib();
     VOID FreeTib();
 
+    // DirtboxGraphics.cpp
     DWORD GraphicsThread(PVOID Parameter);
     DWORD InitializeGraphics();
 
-    VOID EXPORT WINAPI Initialize();
-
+    // DirtboxKernel.cpp
     PVOID NTAPI AvGetSavedDataAddress();
     VOID NTAPI AvSendTVEncoderOption(
         PVOID RegisterBase, DWORD Option, DWORD Param, PDWORD Result
@@ -135,13 +143,13 @@ namespace Dirtbox
         PLARGE_INTEGER CurrentTime
     );
     KIRQL NTAPI KeRaiseIrqlToDpcLevel();
-    LONG NTAPI KeSetEvent(
+    BOOLEAN NTAPI KeSetEvent(
         PKEVENT Event, LONG Increment, CHAR Wait
     );
     BOOLEAN NTAPI KeSetTimer(
         PKTIMER Timer, LARGE_INTEGER DueTime, PKDPC Dpc
     );
-    LONG NTAPI KeWaitForSingleObject(
+    NTSTATUS NTAPI KeWaitForSingleObject(
         PVOID Object, KWAIT_REASON WaitReason, CHAR WaitMode, CHAR Alertable, 
         PLARGE_INTEGER Timeout
     );
@@ -180,7 +188,7 @@ namespace Dirtbox
         HANDLE Handle
     );
     NTSTATUS NTAPI NtCreateFile(
-        PHANDLE FileHandle, DWORD DesiredAccess, PXBOX_OBJECT_ATTRIBUTES ObjectAttributes, 
+        PHANDLE FileHandle, DWORD DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes, 
         PIO_STATUS_BLOCK IoStatusBlock, PLARGE_INTEGER AllocationSize, DWORD FileAttributes, 
         DWORD ShareAccess, DWORD CreateDisposition, DWORD CreateOptions 
     );
@@ -209,7 +217,7 @@ namespace Dirtbox
     );
     NTSTATUS NTAPI NtQueryInformationFile(
         HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FileInformation, DWORD Length, 
-        PFILE_INFORMATION_CLASS FileInformationClass
+        FILE_INFORMATION_CLASS FileInformationClass
     );
     NTSTATUS NTAPI NtQuerySymbolicLinkObject(
         HANDLE LinkHandle, PSTR *LinkTarget, PDWORD ReturnedLength
@@ -223,10 +231,10 @@ namespace Dirtbox
     );
     NTSTATUS NTAPI NtReadFile(
         HANDLE FileHandle, HANDLE Event, PVOID ApcRoutine, PVOID ApcContext,
-        PVOID IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
+        PIO_STATUS_BLOCK IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
     );
     NTSTATUS NTAPI NtSetInformationFile(
-        HANDLE FileHandle, PVOID IoStatusBlock, PVOID FileInformation, DWORD Length, 
+        HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FileInformation, DWORD Length, 
         DWORD FileInformationClass
     );
     NTSTATUS NTAPI NtWaitForSingleObject(
@@ -237,7 +245,7 @@ namespace Dirtbox
     );
     NTSTATUS NTAPI NtWriteFile( 
         HANDLE FileHandle, PVOID Event, PVOID ApcRoutine, PVOID ApcContext,
-        PVOID IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
+        PIO_STATUS_BLOCK IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
     );
     NTSTATUS NTAPI PsCreateSystemThreadEx(
         PHANDLE ThreadHandle, DWORD ThreadExtraSize, DWORD KernelStackSize, DWORD TlsDataSize, 
@@ -248,6 +256,9 @@ namespace Dirtbox
         NTSTATUS ExitStatus
     );
     extern XBOX_HARDWARE_INFO XboxHardwareInfo;
+
+    // Dirtbox.cpp
+    VOID EXPORT WINAPI Initialize();
 }
 
 #endif

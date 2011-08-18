@@ -146,15 +146,15 @@ struct XBOX_TIB
     KPRCB PrcbData;
 };
 
-struct XBOX_OBJECT_ATTRIBUTES
+struct OBJECT_ATTRIBUTES
 {
         HANDLE RootDirectory;
         PANSI_STRING ObjectName;
         DWORD Attributes;
 };
-typedef XBOX_OBJECT_ATTRIBUTES *PXBOX_OBJECT_ATTRIBUTES;
+typedef OBJECT_ATTRIBUTES *POBJECT_ATTRIBUTES;
 
-struct OBJECT_ATTRIBUTES {
+struct NT_OBJECT_ATTRIBUTES {
     DWORD Length;
     HANDLE RootDirectory;
     PUNICODE_STRING ObjectName;
@@ -162,7 +162,7 @@ struct OBJECT_ATTRIBUTES {
     PVOID SecurityDescriptor;
     PVOID SecurityQualityOfService;
 };
-typedef OBJECT_ATTRIBUTES *POBJECT_ATTRIBUTES;
+typedef NT_OBJECT_ATTRIBUTES *PNT_OBJECT_ATTRIBUTES;
 
 struct IO_STATUS_BLOCK {
     union {

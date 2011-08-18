@@ -1,13 +1,18 @@
 #include "Dirtbox.h"
 #include "Native.h"
 
-#define _CRT_SECURE_NO_WARNINGS
+#define CRT_SECURE_NO_WARNINGS
 
 DWORD Dirtbox::HalDiskCachePartitionCount = 3;
 XBOX_HARDWARE_INFO Dirtbox::XboxHardwareInfo;
 DWORD Dirtbox::LaunchDataPage;
 
+// TODO: need to put critical sections around each of these
+// in case they are used in a multithreaded way
 static PVOID AvpSavedDataAddress = (PVOID)0;
+
+#define IN_DRIVE(path, drive) \
+    (toupper((path)[0]) == drive && path[1] == ':' && path[2] == '\\')
 
 PVOID NTAPI Dirtbox::AvGetSavedDataAddress()
 {
@@ -67,10 +72,10 @@ NTSTATUS NTAPI Dirtbox::DbgPrint(
 {
     SwapTibs();
 
-    DEBUG_PRINT("DbgPrint: %s\n", Output);
+    DEBUG_PRINT("DbgPrint: \"%s\"\n", Output);
 
     SwapTibs();
-    return 0;
+    return STATUS_SUCCESS;
 }
 
 // export 24
@@ -89,10 +94,10 @@ NTSTATUS NTAPI Dirtbox::ExQueryNonVolatileSetting(
     {
     case 7: // Language
         *(DWORD *)Value = 1;
-        return 0;
+        return STATUS_SUCCESS;
     case 10: // Parental control setting
         *(DWORD *)Value = 0;
-        return 0;
+        return STATUS_SUCCESS;
     default:
         return -1;
     }
@@ -169,13 +174,13 @@ NTSTATUS NTAPI Dirtbox::IoCreateSymbolicLink(
 {
     SwapTibs();
 
-    DEBUG_PRINT("IoCreateSymbolicLink: %s %s\n", 
+    DEBUG_PRINT("IoCreateSymbolicLink: \"%s\" \"%s\"\n", 
         SymbolicLinkName->Buffer, DeviceName->Buffer);
 
-    // TODO
+    // TODO: critical section
 
     SwapTibs();
-    return 0;
+    return STATUS_SUCCESS;
 }
 
 NTSTATUS NTAPI Dirtbox::IoDeleteSymbolicLink(
@@ -184,13 +189,13 @@ NTSTATUS NTAPI Dirtbox::IoDeleteSymbolicLink(
 {
     SwapTibs();
 
-    DEBUG_PRINT("IoDeleteSymbolicLink: %s %s\n", 
+    DEBUG_PRINT("IoDeleteSymbolicLink: \"%s\"\n", 
         SymbolicLinkName->Buffer);
 
-    // TODO
+    // TODO: critical section
 
     SwapTibs();
-    return 0;
+    return STATUS_SUCCESS;
 }
 
 VOID NTAPI Dirtbox::KeBugCheck(
@@ -383,7 +388,7 @@ KIRQL NTAPI Dirtbox::KeRaiseIrqlToDpcLevel()
     return OldIrql;
 }
 
-LONG NTAPI Dirtbox::KeSetEvent(
+BOOLEAN NTAPI Dirtbox::KeSetEvent(
     PKEVENT Event, LONG Increment, CHAR Wait
 )
 {
@@ -392,8 +397,24 @@ LONG NTAPI Dirtbox::KeSetEvent(
     DEBUG_PRINT("KeSetEvent: 0x%08x %i %i\n",
         Event, Increment, Wait);
 
+    // thinking of how to implement Ke events with the Windows API event objects.
+    // maybe a hash table of addresses of KEVENT objects?
+    if (Event->Header.Type != 0)
+    {
+        DEBUG_PRINT("KeSetEvent: Events other than Notification Events not implemented.\n");
+        ExitProcess(1);
+    }
+
+    if (Event->Header.WaitListHead.Flink != &Event->Header.WaitListHead)
+    {
+        DEBUG_PRINT("KeSetEvent: Events with more than two threads not supported.\n");
+        ExitProcess(1);
+    }
+
+    Event->Header.SignalState = 1;
+
     SwapTibs();
-    return 1;
+    return TRUE;
 }
 
 BOOLEAN NTAPI Dirtbox::KeSetTimer(
@@ -405,11 +426,16 @@ BOOLEAN NTAPI Dirtbox::KeSetTimer(
     DEBUG_PRINT("KeSetTimer: 0x%08x 0x%08x 0x%08x\n",
         Timer, DueTime, Dpc);
 
+    // Don't really need to implement it yet, only used in shutdown
+    Timer->Header.SignalState = 0;
+    Timer->Period = 0;
+    Timer->Dpc = Dpc;
+
     SwapTibs();
-    return 1;
+    return TRUE;
 }
 
-LONG NTAPI Dirtbox::KeWaitForSingleObject(
+NTSTATUS NTAPI Dirtbox::KeWaitForSingleObject(
     PVOID Object, KWAIT_REASON WaitReason, CHAR WaitMode, CHAR Alertable, 
     PLARGE_INTEGER Timeout
 )
@@ -419,8 +445,12 @@ LONG NTAPI Dirtbox::KeWaitForSingleObject(
     DEBUG_PRINT("KeWaitForSingleObject: 0x%08x %i %i %i %i 0x%08x\n",
         Object, WaitReason, WaitMode, Alertable, Timeout);
 
+    while (((PKEVENT)Object)->Header.SignalState > 0)
+    {
+    }
+
     SwapTibs();
-    return 0;
+    return STATUS_SUCCESS;
 }
 
 DWORD __fastcall Dirtbox::KfLowerIrql(KIRQL NewIrql)
@@ -609,14 +639,14 @@ NTSTATUS NTAPI Dirtbox::NtClose(
     DEBUG_PRINT("NtClose: 0x%x",
         Handle);
 
-    NTSTATUS Res = CloseHandle(Handle);
+    NTSTATUS Res = ::NtClose(Handle);
 
     SwapTibs();
     return Res;
 }
 
 NTSTATUS NTAPI Dirtbox::NtCreateFile(
-    PHANDLE FileHandle, DWORD DesiredAccess, PXBOX_OBJECT_ATTRIBUTES ObjectAttributes, 
+    PHANDLE FileHandle, DWORD DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes, 
     PIO_STATUS_BLOCK IoStatusBlock, PLARGE_INTEGER AllocationSize, DWORD FileAttributes, 
     DWORD ShareAccess, DWORD CreateDisposition, DWORD CreateOptions 
 )
@@ -625,34 +655,71 @@ NTSTATUS NTAPI Dirtbox::NtCreateFile(
 
     SwapTibs();
 
-    DEBUG_PRINT("NtCreateFile: 0x%08x 0x%x 0x%08x 0x%08x 0x%08x 0x%x 0x%x 0x%x 0x%x\n",
-        FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock,
-        AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions);
+    DEBUG_PRINT("NtCreateFile: 0x%08x 0x%x 0x%08x \"%s\" 0x%08x 0x%08x 0x%x 0x%x 0x%x 0x%x\n",
+        FileHandle, DesiredAccess, ObjectAttributes, ObjectAttributes->ObjectName->Buffer, 
+        IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, 
+        CreateDisposition, CreateOptions);
 
-    CHAR Buffer[256];
-    strncpy(Buffer, ObjectAttributes->ObjectName->Buffer, 256);
+    if (ObjectAttributes->RootDirectory == OB_DOS_DEVICES)
+    {
+        // Patch drives to directories
+        CHAR Buffer[MAX_PATH];
+        switch (toupper(ObjectAttributes->ObjectName->Buffer[0]))
+        {
+        case 'D':
+            strncpy(Buffer, "\\??\\C:\\Dirtbox\\D\\", MAX_PATH);
+            break;
+        case 'T':
+            strncpy(Buffer, "\\??\\C:\\Dirtbox\\T\\", MAX_PATH);
+            break;
+        case 'U':
+            strncpy(Buffer, "\\??\\C:\\Dirtbox\\U\\", MAX_PATH);
+            break;
+        case 'Z':
+            strncpy(Buffer, "\\??\\C:\\Dirtbox\\Z\\", MAX_PATH);
+            break;
+        default:
+            DEBUG_PRINT("NtCreateFile: invalid drive.\n");
+            ExitProcess(1);
+            break;
+        }
+        strncat(Buffer, &ObjectAttributes->ObjectName->Buffer[3], MAX_PATH-20);
 
-    // TODO: Patch drives to directories
+        // Convert Xbox path (in ANSI) to Windows NT format (UNICODE_STRING)
+        WCHAR UnicodeBuffer[MAX_PATH];
+        UNICODE_STRING ObjectName;
+        mbstowcs(UnicodeBuffer, Buffer, MAX_PATH);
+        ObjectName.Length = wcslen(UnicodeBuffer) * sizeof(WCHAR);
+        ObjectName.MaximumLength = MAX_PATH;
+        ObjectName.Buffer = UnicodeBuffer;
 
-    // RtlInitUnicodeString
-    WCHAR UnicodeBuffer[256];
-    UNICODE_STRING UnicodeString;
-    mbstowcs(UnicodeBuffer, Buffer, 256);
-    UnicodeString.Length = wcslen(UnicodeBuffer) * sizeof(WCHAR);
-    UnicodeString.MaximumLength = sizeof(UnicodeBuffer);
-    UnicodeString.Buffer = UnicodeBuffer;
+        // Convert Xbox OBJECT_ATTRIBUTES to Windows NT OBJECT_ATTRIBUTES
+        NT_OBJECT_ATTRIBUTES NtObjectAttributes;
+        NtObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
+        NtObjectAttributes.ObjectName = &ObjectName;
+        NtObjectAttributes.Attributes = ObjectAttributes->Attributes;
+        NtObjectAttributes.RootDirectory = NULL;
+        NtObjectAttributes.SecurityDescriptor = NULL;
 
-    OBJECT_ATTRIBUTES NtObjectAttributes;
-    NtObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
-    NtObjectAttributes.ObjectName = &UnicodeString;
-    NtObjectAttributes.Attributes = ObjectAttributes->Attributes;
-    NtObjectAttributes.RootDirectory = ObjectAttributes->RootDirectory;
-    NtObjectAttributes.SecurityDescriptor = NULL;
-    Res = ::NtCreateFile(
-        FileHandle, DesiredAccess, &NtObjectAttributes, IoStatusBlock, 
-        AllocationSize, FileAttributes, ShareAccess, CreateDisposition, 
-        CreateOptions, NULL, 0
-    );
+        // Call Windows NT equivalent
+        Res = ::NtCreateFile(
+            FileHandle, DesiredAccess, &NtObjectAttributes, IoStatusBlock, 
+            AllocationSize, FileAttributes, ShareAccess, CreateDisposition, 
+            CreateOptions, NULL, 0
+        );
+    }
+    else if (ObjectAttributes->RootDirectory == NULL)
+    {
+        if (CreateOptions & 1)
+            Res = STATUS_NOT_A_DIRECTORY;
+        else
+            Res = STATUS_OBJECT_NAME_COLLISION;
+    }
+    else
+    {
+        DEBUG_PRINT("NtCreateFile: Invalid root directory.\n");
+        ExitProcess(1);
+    }
 
     SwapTibs();
     return Res;
@@ -671,17 +738,25 @@ NTSTATUS NTAPI Dirtbox::NtDeviceIoControlFile(
         IoStatusBlock, IoControlCode, InputBuffer, InputBufferLength,
         OutputBuffer, OutputBufferLength);
 
-    // TODO: Send information out
+    // TODO: not needed unless mounting utility drive
 
     SwapTibs();
-    return 0;
+    return -1;
 }
 
 NTSTATUS NTAPI Dirtbox::NtFlushBuffersFile(
     HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock
 )
 {
-    return 0;
+    SwapTibs();
+
+    DEBUG_PRINT("NtFlushBuffersFile: 0x%08x 0x%08x\n", 
+        FileHandle, IoStatusBlock);
+
+    DWORD Res = ::NtFlushBuffersFile(FileHandle, IoStatusBlock);
+
+    SwapTibs();
+    return Res;
 }
 
 NTSTATUS NTAPI Dirtbox::NtFreeVirtualMemory(
@@ -707,7 +782,18 @@ NTSTATUS NTAPI Dirtbox::NtFsControlFile(
     PVOID OutputBuffer, DWORD OutputBufferLength
 )
 {
-    return 0;
+    SwapTibs();
+
+    DEBUG_PRINT("NtFsControlFile: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%x " 
+        "0x%08x 0x%x 0x%08x 0x%x\n",
+        FileHandle, Event, ApcRoutine, ApcContext,
+        IoStatusBlock, IoControlCode, InputBuffer, InputBufferLength,
+        OutputBuffer, OutputBufferLength);
+
+    // TODO: not needed unless mounting utility drive
+
+    SwapTibs();
+    return -1;
 }
 
 NTSTATUS NTAPI Dirtbox::NtOpenFile(
@@ -715,29 +801,64 @@ NTSTATUS NTAPI Dirtbox::NtOpenFile(
     PIO_STATUS_BLOCK IoStatusBlock, DWORD ShareAccess, DWORD OpenOptions
 )
 {
-    return 0;
+    SwapTibs();
+
+    DEBUG_PRINT("NtOpenFile: 0x%08x 0x%x 0x%08x \"%s\" 0x%08x 0x%x 0x%x\n",
+        FileHandle, DesiredAccess, ObjectAttributes, ObjectAttributes->ObjectName->Buffer, 
+        IoStatusBlock, ShareAccess, OpenOptions);
+
+    // TODO: not needed unless mounting utility drive or setting up drive
+
+    SwapTibs();
+    return -1;
 }
 
 NTSTATUS NTAPI Dirtbox::NtOpenSymbolicLinkObject(
     PHANDLE LinkHandle, POBJECT_ATTRIBUTES ObjectAttributes
 )
 {
-    return 0;
+    SwapTibs();
+
+    DEBUG_PRINT("NtOpenSymbolicLinkObject: 0x%08x 0x%08x \"%s\"",
+        LinkHandle, ObjectAttributes, ObjectAttributes->ObjectName->Buffer);
+
+    // Can fail, then it assumes to be CD-ROM
+
+    SwapTibs();
+    return -1;
 }
 
 NTSTATUS NTAPI Dirtbox::NtQueryInformationFile(
     HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FileInformation, DWORD Length, 
-    PFILE_INFORMATION_CLASS FileInformationClass
+    FILE_INFORMATION_CLASS FileInformationClass
 )
 {
-    return 0;
+    SwapTibs();
+
+    DEBUG_PRINT("NtQueryInformationFile: 0x%08x 0x%08x 0x%08x 0x%x 0x%x\n",
+        FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
+
+    DWORD Res = ::NtQueryInformationFile(
+        FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass
+    );
+
+    SwapTibs();
+    return Res;
 }
 
 NTSTATUS NTAPI Dirtbox::NtQuerySymbolicLinkObject(
     HANDLE LinkHandle, PSTR *LinkTarget, PDWORD ReturnedLength
 )
 {
-    return 0;
+    SwapTibs();
+
+    DEBUG_PRINT("NtOpenSymbolicLinkObject: 0x%08x 0x%08x 0x%x",
+        LinkHandle, LinkTarget, ReturnedLength);
+
+    // Can fail, then it assumes to be CD-ROM
+
+    SwapTibs();
+    return -1;
 }
 
 NTSTATUS NTAPI Dirtbox::NtQueryVirtualMemory(
@@ -762,23 +883,51 @@ NTSTATUS NTAPI Dirtbox::NtQueryVolumeInformationFile(
     DWORD FsInformationClass
 )
 {
-    return 0;
+    SwapTibs();
+
+    DEBUG_PRINT("NtOpenFile: 0x%08x 0x%08x 0x%08x 0x%x 0x%08x\n",
+        FileHandle, IoStatusBlock, FsInformation, Length, FsInformationClass);
+
+    // TODO: not needed unless mounting utility drive or setting up drive
+
+    SwapTibs();
+    return -1;
 }
 
 NTSTATUS NTAPI Dirtbox::NtReadFile(
     HANDLE FileHandle, HANDLE Event, PVOID ApcRoutine, PVOID ApcContext,
-    PVOID IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
+    PIO_STATUS_BLOCK IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
 )
 {
-    return 0;
+    SwapTibs();
+
+    DEBUG_PRINT("NtReadFile: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%x 0x%08x\n",
+        FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset);
+
+    NTSTATUS Res = ::NtReadFile(
+        FileHandle, Event, NULL, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, NULL
+    );
+
+    SwapTibs();
+    return Res;
 }
 
 NTSTATUS NTAPI Dirtbox::NtSetInformationFile(
-    HANDLE FileHandle, PVOID IoStatusBlock, PVOID FileInformation, DWORD Length, 
+    HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FileInformation, DWORD Length, 
     DWORD FileInformationClass
 )
 {
-    return 0;
+    SwapTibs();
+
+    DEBUG_PRINT("NtSetInformationFile: 0x%08x 0x%08x 0x%08x 0x%x 0x%x\n",
+        FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
+
+    NTSTATUS Res = ::NtSetInformationFile(
+        FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass
+    );
+
+    SwapTibs();
+    return Res;
 }
 
 NTSTATUS NTAPI Dirtbox::NtWaitForSingleObject(
@@ -792,15 +941,35 @@ NTSTATUS NTAPI Dirtbox::NtWaitForSingleObjectEx(
     HANDLE Handle, CHAR WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Timeout
 )
 {
-    return 0;
+    SwapTibs();
+
+    DEBUG_PRINT("NtWaitForSingleObjectEx: 0x%08x 0x%x %i 0x%08x\n",
+        Handle, WaitMode, Alertable, Timeout);
+
+    NTSTATUS Res = ::NtWaitForSingleObject(
+        Handle, Alertable, Timeout
+    );
+
+    SwapTibs();
+    return Res;
 }
 
 NTSTATUS NTAPI Dirtbox::NtWriteFile( 
     HANDLE FileHandle, PVOID Event, PVOID ApcRoutine, PVOID ApcContext,
-    PVOID IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
+    PIO_STATUS_BLOCK IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
 )
 {
-    return 0;
+    SwapTibs();
+
+    DEBUG_PRINT("NtWriteFile: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%x 0x%08x\n",
+        FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset);
+
+    NTSTATUS Res = ::NtWriteFile(
+        FileHandle, Event, NULL, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, NULL
+    );
+
+    SwapTibs();
+    return Res;
 }
 
 NTSTATUS NTAPI Dirtbox::PsCreateSystemThreadEx(
