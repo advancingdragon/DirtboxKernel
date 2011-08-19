@@ -2,9 +2,9 @@
 
 #include "Dirtbox.h"
 
-#define _CRT_SECURE_NO_WARNINGS
+using namespace Dirtbox;
 
-DWORD Dirtbox::GraphicsThread(PVOID Parameter)
+DWORD WINAPI Dirtbox::GraphicsThreadCallback(PVOID Parameter)
 {
     while (TRUE)
     {
@@ -26,13 +26,13 @@ DWORD Dirtbox::GraphicsThread(PVOID Parameter)
 
 DWORD Dirtbox::InitializeGraphics()
 {
-    if (Dirtbox::MyVirtualAlloc(TRIGGER_ADDRESS, 0x1000) == NULL)
+    if (MyVirtualAlloc(TRIGGER_ADDRESS, 0x1000) == NULL)
     {
         DEBUG_PRINT("Error: Could not allocate trigger memory.\n");
         return 1;
     }
 
-    if (Dirtbox::MyVirtualAlloc(REGISTER_BASE, 0xA00000) == NULL)
+    if (MyVirtualAlloc(REGISTER_BASE, 0xA00000) == NULL)
     {
         DEBUG_PRINT("Error: Could not allocate GPU register memory.\n");
         return 1;
@@ -42,7 +42,7 @@ DWORD Dirtbox::InitializeGraphics()
     REG32(NV_PFIFO_CACHE1_STATUS) = 0x10;
     REG32(USER_NV_USER_ADDRESS) = REGISTER_BASE + NV_USER;
 
-    CreateThread(NULL, 0, (PTHREAD_START_ROUTINE)&Dirtbox::GraphicsThread, 0, 0, NULL);
+    CreateThread(NULL, 0, &GraphicsThreadCallback, 0, 0, NULL);
 
     DEBUG_PRINT("Dirtbox graphics initialized successfully.\n");
     return 0;

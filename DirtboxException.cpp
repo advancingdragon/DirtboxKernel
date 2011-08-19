@@ -2,13 +2,13 @@
 
 #include "Dirtbox.h"
 
-#define _CRT_SECURE_NO_WARNINGS
-
 #define OP_TWO_BYTE 0x0F
 #define OP_IN 0xEC
 #define OP_OUT 0xEE
 
 #define OP2_WBINVD 0x09
+
+using namespace Dirtbox;
 
 LONG WINAPI Dirtbox::ExceptionHandler(PEXCEPTION_POINTERS ExceptionInfo)
 {

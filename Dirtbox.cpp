@@ -1,6 +1,6 @@
 #include "Dirtbox.h"
 
-#define _CRT_SECURE_NO_WARNINGS
+using namespace Dirtbox;
 
 BOOL WINAPI DllMain(
     HINSTANCE hInstDll, DWORD fdwReason, PVOID fImpLoad
@@ -186,16 +186,73 @@ VOID WINAPI Dirtbox::Initialize()
         case 258:
             KernelImageThunks[i] = (DWORD)&PsTerminateSystemThread;
             break;
+        case 269:
+            KernelImageThunks[i] = (DWORD)&RtlCompareMemoryUlong;
+            break;
+        case 277:
+            KernelImageThunks[i] = (DWORD)&RtlEnterCriticalSection;
+            break;
+        case 279:
+            KernelImageThunks[i] = (DWORD)&RtlEqualString;
+            break;
+        case 289:
+            KernelImageThunks[i] = (DWORD)&RtlInitAnsiString;
+            break;
+        case 291:
+            KernelImageThunks[i] = (DWORD)&RtlInitializeCriticalSection;
+            break;
+        case 294:
+            KernelImageThunks[i] = (DWORD)&RtlLeaveCriticalSection;
+            break;
+        case 301:
+            KernelImageThunks[i] = (DWORD)&RtlNtStatusToDosError;
+            break;
+        case 302:
+            KernelImageThunks[i] = (DWORD)&RtlRaiseException;
+            break;
         case 322:
             KernelImageThunks[i] = (DWORD)&XboxHardwareInfo;
+            break;
+        case 323:
+            KernelImageThunks[i] = (DWORD)&XboxHDKey;
+            break;
+        case 324:
+            KernelImageThunks[i] = (DWORD)&XboxKrnlVersion;
+            break;
+        case 326:
+            KernelImageThunks[i] = (DWORD)&XeImageFileName;
+            break;
+        case 327:
+            KernelImageThunks[i] = (DWORD)&XeLoadSection;
+            break;
+        case 328:
+            KernelImageThunks[i] = (DWORD)&XeUnloadSection;
+            break;
+        case 335:
+            KernelImageThunks[i] = (DWORD)&XcSHAInit;
+            break;
+        case 336:
+            KernelImageThunks[i] = (DWORD)&XcSHAUpdate;
+            break;
+        case 337:
+            KernelImageThunks[i] = (DWORD)&XcSHAFinal;
+            break;
+        case 340:
+            KernelImageThunks[i] = (DWORD)&XcHMAC;
+            break;
+        case 357:
+            KernelImageThunks[i] = (DWORD)&IdexChannelObject;
+            break;
+        case 360:
+            KernelImageThunks[i] = (DWORD)&HalInitiateShutdown;
             break;
         }
     }
 
-    Dirtbox::InitializeThreading();
-    Dirtbox::AllocateTib();
-    AddVectoredExceptionHandler(1, &Dirtbox::ExceptionHandler);
-    if (Dirtbox::InitializeGraphics() != 0)
+    InitializeThreading();
+    AllocateTib(0);
+    AddVectoredExceptionHandler(1, &ExceptionHandler);
+    if (InitializeGraphics() != 0)
     {
         exit(1);
     }

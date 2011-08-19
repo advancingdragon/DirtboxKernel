@@ -57,7 +57,21 @@ namespace Dirtbox
     LONG WINAPI ExceptionHandler(PEXCEPTION_POINTERS ExceptionInfo);
 
     // DirtboxThreading.cpp
-    static inline void SwapTibs()
+    typedef struct SHIM_CONTEXT
+    {
+        DWORD TlsDataSize;
+        PKSTART_ROUTINE StartRoutine;
+        PVOID StartContext;
+        PKSYSTEM_ROUTINE SystemRoutine;
+    } *PSHIM_CONTEXT;
+
+    DWORD WINAPI ShimCallback(PVOID Parameter);
+    VOID InitializeThreading();
+    WORD AllocateLdtEntry(DWORD Base, DWORD Limit);
+    VOID FreeLdtEntry(WORD Selector);
+    VOID AllocateTib(DWORD TlsDataSize);
+    VOID FreeTib();
+    static inline VOID SwapTibs()
     {
         __asm
         {
@@ -65,197 +79,243 @@ namespace Dirtbox
             mov fs, ax
         }
     }
-    VOID InitializeThreading();
-    WORD AllocateLdtEntry(DWORD Base, DWORD Limit);
-    VOID FreeLdtEntry(WORD Selector);
-    VOID AllocateTib();
-    VOID FreeTib();
 
     // DirtboxGraphics.cpp
-    DWORD GraphicsThread(PVOID Parameter);
+    DWORD WINAPI GraphicsThreadCallback(PVOID Parameter);
     DWORD InitializeGraphics();
 
     // DirtboxKernel.cpp
-    PVOID NTAPI AvGetSavedDataAddress();
-    VOID NTAPI AvSendTVEncoderOption(
+    PVOID WINAPI AvGetSavedDataAddress();
+    VOID WINAPI AvSendTVEncoderOption(
         PVOID RegisterBase, DWORD Option, DWORD Param, PDWORD Result
     );
-    DWORD NTAPI AvSetDisplayMode(
+    DWORD WINAPI AvSetDisplayMode(
         PVOID RegisterBase, DWORD Step, DWORD Mode, DWORD Format, 
         DWORD Pitch, DWORD FrameBuffer
     );
-    VOID NTAPI AvSetSavedDataAddress(
+    VOID WINAPI AvSetSavedDataAddress(
         PVOID Address
     );
-    NTSTATUS NTAPI DbgPrint(
+    NTSTATUS WINAPI DbgPrint(
         PSTR Output
     );
-    NTSTATUS NTAPI ExQueryNonVolatileSetting(
+    NTSTATUS WINAPI ExQueryNonVolatileSetting(
         DWORD ValueIndex, DWORD *Type, PBYTE Value, SIZE_T ValueLength,
         PSIZE_T ResultLength
     );
     extern DWORD HalDiskCachePartitionCount;
-    DWORD NTAPI HalGetInterruptVector(
+    DWORD WINAPI HalGetInterruptVector(
         DWORD BusInterruptLevel, PKIRQL Irql
     );
-    VOID NTAPI HalReadWritePCISpace(
+    VOID WINAPI HalReadWritePCISpace(
         DWORD BusNumber, DWORD SlotNumber, DWORD RegisterNumber, PVOID Buffer, 
         DWORD Length, BOOLEAN WritePCISpace
     );
-    VOID NTAPI HalRegisterShutdownNotification(
+    VOID WINAPI HalRegisterShutdownNotification(
         PHAL_SHUTDOWN_REGISTRATION ShutdownRegistration, CHAR Register
     );
-    VOID NTAPI HalReturnToFirmware(
+    VOID WINAPI HalReturnToFirmware(
         RETURN_FIRMWARE Routine
     );
-    NTSTATUS NTAPI IoCreateSymbolicLink(
+    NTSTATUS WINAPI IoCreateSymbolicLink(
         PANSI_STRING SymbolicLinkName, PANSI_STRING DeviceName
     );
-    NTSTATUS NTAPI IoDeleteSymbolicLink(
+    NTSTATUS WINAPI IoDeleteSymbolicLink(
         PANSI_STRING SymbolicLinkName
     );
-    VOID NTAPI KeBugCheck(
+    VOID WINAPI KeBugCheck(
         DWORD BugCheckCode
     );
-    BOOLEAN NTAPI KeConnectInterrupt(
+    BOOLEAN WINAPI KeConnectInterrupt(
         PKINTERRUPT Interrupt
     );
-    NTSTATUS NTAPI KeDelayExecutionThread(
+    NTSTATUS WINAPI KeDelayExecutionThread(
         CHAR WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Interval
     );
-    BOOLEAN NTAPI KeDisconnectInterrupt(
+    BOOLEAN WINAPI KeDisconnectInterrupt(
         PKINTERRUPT Interrupt
     );
-    VOID NTAPI KeInitializeDpc(
+    VOID WINAPI KeInitializeDpc(
         PKDPC Dpc, PKDEFERRED_ROUTINE DeferredRoutine, PVOID DeferredContext
     );
-    VOID NTAPI KeInitializeInterrupt(
+    VOID WINAPI KeInitializeInterrupt(
         PKINTERRUPT Interrupt, PKSERVICE_ROUTINE ServiceRoutine, PVOID ServiceContext, DWORD Vector,
         KIRQL Irql, KINTERRUPT_MODE InterruptMode, BOOLEAN ShareVector
     );
-    VOID NTAPI KeInitializeTimerEx(
+    VOID WINAPI KeInitializeTimerEx(
         PKTIMER Timer, TIMER_TYPE Type
     );
-    BOOLEAN NTAPI KeInsertQueueDpc(
+    BOOLEAN WINAPI KeInsertQueueDpc(
         PKDPC Dpc, PVOID SystemArgument1, PVOID SystemArgument2
     );
-    VOID NTAPI KeQuerySystemTime(
+    VOID WINAPI KeQuerySystemTime(
         PLARGE_INTEGER CurrentTime
     );
-    KIRQL NTAPI KeRaiseIrqlToDpcLevel();
-    BOOLEAN NTAPI KeSetEvent(
+    KIRQL WINAPI KeRaiseIrqlToDpcLevel();
+    BOOLEAN WINAPI KeSetEvent(
         PKEVENT Event, LONG Increment, CHAR Wait
     );
-    BOOLEAN NTAPI KeSetTimer(
+    BOOLEAN WINAPI KeSetTimer(
         PKTIMER Timer, LARGE_INTEGER DueTime, PKDPC Dpc
     );
-    NTSTATUS NTAPI KeWaitForSingleObject(
+    NTSTATUS WINAPI KeWaitForSingleObject(
         PVOID Object, KWAIT_REASON WaitReason, CHAR WaitMode, CHAR Alertable, 
         PLARGE_INTEGER Timeout
     );
     DWORD __fastcall KfLowerIrql(KIRQL NewIrql);
     extern DWORD LaunchDataPage;
-    PVOID NTAPI MmAllocateContiguousMemory(
+    PVOID WINAPI MmAllocateContiguousMemory(
         DWORD NumberOfBytes
     );
-    PVOID NTAPI MmAllocateContiguousMemoryEx(
+    PVOID WINAPI MmAllocateContiguousMemoryEx(
         DWORD NumberOfBytes, DWORD LowestAcceptableAddress, DWORD HighestAcceptableAddress,
         DWORD Alignment, DWORD ProtectionType
     );
-    PVOID NTAPI MmClaimGpuInstanceMemory(
+    PVOID WINAPI MmClaimGpuInstanceMemory(
         DWORD NumberOfBytes, PDWORD NumberOfPaddingBytes
     );
-    VOID NTAPI MmFreeContiguousMemory(
+    VOID WINAPI MmFreeContiguousMemory(
         PVOID BaseAddress
     );
-    VOID NTAPI MmPersistContiguousMemory(
+    VOID WINAPI MmPersistContiguousMemory(
         PVOID BaseAddress, DWORD NumberOfBytes, BOOLEAN Persist
     );
-    DWORD NTAPI MmQueryAddressProtect(
+    DWORD WINAPI MmQueryAddressProtect(
         PVOID VirtualAddress
     );
-    DWORD NTAPI MmQueryAllocationSize(
+    DWORD WINAPI MmQueryAllocationSize(
         PVOID BaseAddress
     );
-    DWORD NTAPI MmSetAddressProtect(
+    DWORD WINAPI MmSetAddressProtect(
         PVOID BaseAddress, DWORD NumberOfBytes, DWORD NewProtect
     );
-    NTSTATUS NTAPI NtAllocateVirtualMemory(
+    NTSTATUS WINAPI NtAllocateVirtualMemory(
         PVOID *BaseAddress, DWORD ZeroBits, PDWORD AllocationSize, DWORD AllocationType,
         DWORD Protect
     );
-    NTSTATUS NTAPI NtClose(
+    NTSTATUS WINAPI NtClose(
         HANDLE Handle
     );
-    NTSTATUS NTAPI NtCreateFile(
-        PHANDLE FileHandle, DWORD DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes, 
+    NTSTATUS WINAPI NtCreateFile(
+        PHANDLE FileHandle, DWORD DesiredAccess, PXBOX_OBJECT_ATTRIBUTES ObjectAttributes, 
         PIO_STATUS_BLOCK IoStatusBlock, PLARGE_INTEGER AllocationSize, DWORD FileAttributes, 
         DWORD ShareAccess, DWORD CreateDisposition, DWORD CreateOptions 
     );
-    NTSTATUS NTAPI NtDeviceIoControlFile(
+    NTSTATUS WINAPI NtDeviceIoControlFile(
         HANDLE FileHandle, PKEVENT Event, PVOID ApcRoutine, PVOID ApcContext, 
         PIO_STATUS_BLOCK IoStatusBlock, DWORD IoControlCode, PVOID InputBuffer, DWORD InputBufferLength, 
         PVOID OutputBuffer, DWORD OutputBufferLength
     );
-    NTSTATUS NTAPI NtFlushBuffersFile(
+    NTSTATUS WINAPI NtFlushBuffersFile(
         HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock
     );
-    NTSTATUS NTAPI NtFreeVirtualMemory(
+    NTSTATUS WINAPI NtFreeVirtualMemory(
         PVOID *BaseAddress, PDWORD FreeSize, DWORD FreeType
     );
-    NTSTATUS NTAPI NtFsControlFile(
+    NTSTATUS WINAPI NtFsControlFile(
         HANDLE FileHandle, PKEVENT Event, PVOID ApcRoutine, PVOID ApcContext, 
         PIO_STATUS_BLOCK IoStatusBlock, DWORD IoControlCode, PVOID InputBuffer, DWORD InputBufferLength, 
         PVOID OutputBuffer, DWORD OutputBufferLength
     );
-    NTSTATUS NTAPI NtOpenFile(
-        PHANDLE FileHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes,
+    NTSTATUS WINAPI NtOpenFile(
+        PHANDLE FileHandle, ACCESS_MASK DesiredAccess, PXBOX_OBJECT_ATTRIBUTES ObjectAttributes,
         PIO_STATUS_BLOCK IoStatusBlock, DWORD ShareAccess, DWORD OpenOptions
     );
-    NTSTATUS NTAPI NtOpenSymbolicLinkObject(
-        PHANDLE LinkHandle, POBJECT_ATTRIBUTES ObjectAttributes
+    NTSTATUS WINAPI NtOpenSymbolicLinkObject(
+        PHANDLE LinkHandle, PXBOX_OBJECT_ATTRIBUTES ObjectAttributes
     );
-    NTSTATUS NTAPI NtQueryInformationFile(
+    NTSTATUS WINAPI NtQueryInformationFile(
         HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FileInformation, DWORD Length, 
         FILE_INFORMATION_CLASS FileInformationClass
     );
-    NTSTATUS NTAPI NtQuerySymbolicLinkObject(
-        HANDLE LinkHandle, PSTR *LinkTarget, PDWORD ReturnedLength
+    NTSTATUS WINAPI NtQuerySymbolicLinkObject(
+        HANDLE LinkHandle, PANSI_STRING LinkTarget, PDWORD ReturnedLength
     );
-    NTSTATUS NTAPI NtQueryVirtualMemory(
+    NTSTATUS WINAPI NtQueryVirtualMemory(
         PVOID BaseAddress, PMEMORY_BASIC_INFORMATION MemoryInformation
     );
-    NTSTATUS NTAPI NtQueryVolumeInformationFile(
+    NTSTATUS WINAPI NtQueryVolumeInformationFile(
         HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FsInformation, DWORD Length, 
         DWORD FsInformationClass
     );
-    NTSTATUS NTAPI NtReadFile(
+    NTSTATUS WINAPI NtReadFile(
         HANDLE FileHandle, HANDLE Event, PVOID ApcRoutine, PVOID ApcContext,
         PIO_STATUS_BLOCK IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
     );
-    NTSTATUS NTAPI NtSetInformationFile(
+    NTSTATUS WINAPI NtSetInformationFile(
         HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FileInformation, DWORD Length, 
         DWORD FileInformationClass
     );
-    NTSTATUS NTAPI NtWaitForSingleObject(
+    NTSTATUS WINAPI NtWaitForSingleObject(
         HANDLE Handle, BOOLEAN Alertable, PLARGE_INTEGER Timeout
     );
-    NTSTATUS NTAPI NtWaitForSingleObjectEx(
+    NTSTATUS WINAPI NtWaitForSingleObjectEx(
         HANDLE Handle, CHAR WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Timeout
     );
-    NTSTATUS NTAPI NtWriteFile( 
+    NTSTATUS WINAPI NtWriteFile( 
         HANDLE FileHandle, PVOID Event, PVOID ApcRoutine, PVOID ApcContext,
         PIO_STATUS_BLOCK IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
     );
-    NTSTATUS NTAPI PsCreateSystemThreadEx(
-        PHANDLE ThreadHandle, DWORD ThreadExtraSize, DWORD KernelStackSize, DWORD TlsDataSize, 
-        PDWORD ThreadId, PVOID StartContext1, PVOID StartContext2, BOOLEAN CreateSuspended,
-        BOOLEAN DebugStack, PKSTART_ROUTINE StartRoutine
+    NTSTATUS WINAPI PsCreateSystemThreadEx(
+        PHANDLE ThreadHandle, DWORD ThreadExtensionSize, DWORD KernelStackSize, DWORD TlsDataSize, 
+        PDWORD ThreadId, PKSTART_ROUTINE StartRoutine, PVOID StartContext, BOOLEAN CreateSuspended, 
+        BOOLEAN DebuggerThread, PKSYSTEM_ROUTINE SystemRoutine
     );
-    VOID NTAPI PsTerminateSystemThread(
+    VOID WINAPI PsTerminateSystemThread(
         NTSTATUS ExitStatus
     );
+    NTSTATUS WINAPI RtlCompareMemoryUlong(
+        PDWORD Buffer, DWORD Size, DWORD Value
+    );
+    NTSTATUS WINAPI RtlEnterCriticalSection(
+        PXBOX_CRITICAL_SECTION CriticalSection
+    );
+    NTSTATUS WINAPI RtlEqualString(
+        PANSI_STRING String1, PANSI_STRING String2, BOOLEAN CaseInSensitive
+    );
+    VOID WINAPI RtlInitAnsiString(
+        PANSI_STRING DestinationString, PSTR SourceString
+    );
+    VOID WINAPI RtlInitializeCriticalSection(
+        PXBOX_CRITICAL_SECTION CriticalSection
+    );
+    VOID WINAPI RtlLeaveCriticalSection(
+        PXBOX_CRITICAL_SECTION CriticalSection
+    );
+    LONG WINAPI RtlNtStatusToDosError(
+        NTSTATUS Status
+    );
+    VOID WINAPI RtlRaiseException(
+        PEXCEPTION_RECORD ExceptionRecord
+    );
+    VOID WINAPI RtlUnwind(
+        PVOID TargetFrame, PVOID TargetIp, PEXCEPTION_RECORD ExceptionRecord, PVOID ReturnValue
+    );
     extern XBOX_HARDWARE_INFO XboxHardwareInfo;
+    extern DWORD XboxHDKey;
+    extern DWORD XboxKrnlVersion;
+    extern DWORD XeImageFileName;
+    NTSTATUS WINAPI XeLoadSection(
+        PXBEIMAGE_SECTION Section
+    );
+    NTSTATUS WINAPI XeUnloadSection(
+        PXBEIMAGE_SECTION Section
+    );
+    VOID WINAPI XcSHAInit(
+        PCHAR SHAContext
+    );
+    VOID WINAPI XcSHAUpdate(
+        PCHAR SHAContext, PCHAR Input, DWORD InputLength
+    );
+    VOID WINAPI XcSHAFinal(
+        PCHAR SHAContext, PCHAR Digest
+    );
+    VOID WINAPI XcHMAC(
+        PCHAR KeyMaterial, DWORD DwordKeyMaterial, PCHAR Data, DWORD DwordData, 
+        PCHAR Data2, DWORD DwordData2, PCHAR Digest
+    );
+    extern DWORD IdexChannelObject;
+    VOID WINAPI HalInitiateShutdown();
 
     // Dirtbox.cpp
     VOID EXPORT WINAPI Initialize();

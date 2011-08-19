@@ -32,7 +32,7 @@ static NTSTATUS NAKED WINAPI NtClose(
 }
 
 static NTSTATUS NAKED WINAPI NtCreateFile(
-    PHANDLE FileHandle, DWORD DesiredAccess, PNT_OBJECT_ATTRIBUTES ObjectAttributes,
+    PHANDLE FileHandle, DWORD DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes,
     PIO_STATUS_BLOCK IoStatusBlock, PLARGE_INTEGER AllocationSize, DWORD FileAttributes,
     DWORD ShareAccess, DWORD CreateDisposition, DWORD CreateOptions,
     LPVOID EaBuffer, DWORD EaLength

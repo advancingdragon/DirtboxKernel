@@ -1,12 +1,30 @@
 #include "Dirtbox.h"
 #include "Native.h"
 
-#define _CRT_SECURE_NO_WARNINGS
-
 #define MAXIMUM_XBOX_THREADS 15 
+#define NT_TIB_SELF 0x18
+#define KPCR_SELFPCR 0x1C
+
+using namespace Dirtbox;
 
 static CRITICAL_SECTION ThreadingLock;
 static BOOL FreeDescriptors[MAXIMUM_XBOX_THREADS];
+
+DWORD WINAPI Dirtbox::ShimCallback(PVOID Parameter)
+{
+    PSHIM_CONTEXT ShimContext = (PSHIM_CONTEXT)Parameter;
+    AllocateTib(ShimContext->TlsDataSize);
+    SwapTibs();
+
+    ShimContext->SystemRoutine(
+        ShimContext->StartRoutine, ShimContext->StartRoutine
+    );
+
+    SwapTibs();
+    FreeTib();
+    free(ShimContext);
+    return 0;
+}
 
 VOID Dirtbox::InitializeThreading()
 {
@@ -78,7 +96,7 @@ VOID Dirtbox::FreeLdtEntry(WORD Selector)
     LeaveCriticalSection(&ThreadingLock);
 }
 
-VOID Dirtbox::AllocateTib()
+VOID Dirtbox::AllocateTib(DWORD TlsDataSize)
 {
     WORD OldFs;
     WORD NewFs;
@@ -89,47 +107,58 @@ VOID Dirtbox::AllocateTib()
         mov ax, fs
         mov OldFs, ax
 
-        mov eax, fs:[0x18]
+        mov eax, fs:[NT_TIB_SELF]
         mov OldNtTib, eax
     }
 
-    // Allocate LDT entry
-    XBOX_TIB *XboxTib = (XBOX_TIB *)malloc(sizeof(XBOX_TIB));
-    memset((PVOID)XboxTib, 0, sizeof(XBOX_TIB));
+    // Initialize Xbox Thread Information Block
+    PKPCR Kpcr = (PKPCR)malloc(sizeof(KPCR));
+    memset(Kpcr, 0, sizeof(KPCR));
 
-    memcpy((PVOID)&XboxTib->NtTib, (PVOID)OldNtTib, sizeof(NT_TIB));
-    XboxTib->NtTib.ArbitraryUserPointer = (PVOID)OldFs;
-    XboxTib->NtTib.Self = &XboxTib->NtTib;
+    // Initialize subsystem independent part
+    memcpy(&Kpcr->NtTib, OldNtTib, sizeof(NT_TIB));
+    Kpcr->NtTib.ArbitraryUserPointer = (PVOID)OldFs;
+    Kpcr->NtTib.Self = &Kpcr->NtTib;
 
-    XboxTib->Self = XboxTib;
-    XboxTib->Prcb = &XboxTib->PrcbData;
-    XboxTib->Irql = 0;
+    // Initialize Xbox subsystem part
+    Kpcr->SelfPcr = Kpcr;
+    Kpcr->Prcb = &Kpcr->PrcbData;
+    Kpcr->Irql = 0;
 
-    NewFs = Dirtbox::AllocateLdtEntry((DWORD)XboxTib, (DWORD)XboxTib + sizeof(XBOX_TIB));
-
-    __asm
+    // Initialize ETHREAD structure and allocate TLS
+    PETHREAD Ethread = (PETHREAD)malloc(sizeof(ETHREAD));
+    memset(Ethread, 0, sizeof(ETHREAD));
+    if (TlsDataSize != 0)
     {
-        mov ax, NewFs
-        mov fs:[0x14], ax
+        Ethread->Tcb.TlsData = malloc(TlsDataSize);
     }
+    Ethread->UniqueThread = (PVOID)GetCurrentThreadId();
+    Kpcr->Prcb->CurrentThread = (PKTHREAD)Ethread;
+
+    NewFs = AllocateLdtEntry((DWORD)Kpcr, (DWORD)Kpcr + sizeof(KPCR));
+
+    OldNtTib->ArbitraryUserPointer = (PVOID)NewFs;
 }
 
 // Assumes that we are in Windows TIB
 VOID Dirtbox::FreeTib()
 {
-    XBOX_TIB *XboxTib;
+    PKPCR Kpcr;
     WORD Selector;
 
     SwapTibs();
     __asm
     {
-        mov eax, fs:[0x1C]
-        mov XboxTib, eax
+        mov eax, fs:[KPCR_SELFPCR]
+        mov Kpcr, eax
         mov ax, fs
         mov Selector, ax
     }
     SwapTibs();
 
-    free((PVOID)XboxTib);
+    if (Kpcr->Prcb->CurrentThread->TlsData != NULL)
+        free(Kpcr->Prcb->CurrentThread->TlsData);
+    free(Kpcr->Prcb->CurrentThread);
+    free(Kpcr);
     FreeLdtEntry(Selector);
 }
