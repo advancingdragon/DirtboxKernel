@@ -67,7 +67,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/LARGEADDRESSAWARE"
-				OutputFile="$(OutDir)\DirtboxK.dll"
+				OutputFile="$(OutDir)\DbE.dll"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -93,8 +93,8 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				Description="Copy to EXE folder"
-				CommandLine="cp $(OutDir)\DirtboxK.dll C:\Projects\Xbox\XboxD3D8\Build\DirtboxK.dll"
+				Description=""
+				CommandLine=""
 			/>
 		</Configuration>
 		<Configuration
@@ -146,7 +146,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/LARGEADDRESSAWARE"
-				OutputFile="$(OutDir)\DirtboxK.dll"
+				OutputFile="$(OutDir)\DbE.dll"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -174,8 +174,8 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				Description="Copy to EXE folder"
-				CommandLine="cp $(OutDir)\DirtboxK.dll C:\Projects\Xbox\XboxD3D8\Build\DirtboxK.dll"
+				Description=""
+				CommandLine=""
 			/>
 		</Configuration>
 	</Configurations>
