@@ -49,7 +49,7 @@ NTSTATUS WINAPI NtQueryInformationFile(
 
 NTSTATUS WINAPI NtQueryVolumeInformationFile(
     HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FsInformation, ULONG Length, 
-    FILE_INFORMATION_CLASS FsInformationClass
+    FS_INFORMATION_CLASS FsInformationClass
 );
 
 NTSTATUS WINAPI NtReadFile(

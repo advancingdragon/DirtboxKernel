@@ -56,7 +56,6 @@ namespace Dirtbox
 
     // DirtboxHacks.cpp
     extern HANDLE CurrentDirectory;
-    extern ANSI_STRING Partition1;
 
     VOID InitializeException();
     VOID InitializeDummyKernel();
@@ -239,7 +238,7 @@ namespace Dirtbox
     );
     NTSTATUS WINAPI NtQueryVolumeInformationFile(
         HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FsInformation, DWORD Length, 
-        DWORD FsInformationClass
+        FS_INFORMATION_CLASS FsInformationClass
     );
     NTSTATUS WINAPI NtReadFile(
         HANDLE FileHandle, HANDLE Event, PVOID ApcRoutine, PVOID ApcContext,

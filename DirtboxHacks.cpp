@@ -20,8 +20,6 @@ namespace Dirtbox
     } *PDUMMY_KERNEL;
 
     HANDLE CurrentDirectory;
-    ANSI_STRING Partition1;
-    CHAR Partition1Buffer[] = "\\Device\\Harddisk0\\partition1\\";
 
     LONG WINAPI ExceptionHandler(PEXCEPTION_POINTERS ExceptionInfo);
 }
@@ -75,7 +73,7 @@ VOID Dirtbox::InitializeException()
     DebugPrint("InitializeException: Exception handler added successfully.");
 }
 
-// this is needed to satisfy a function in the XAPI runtime.
+// this is needed to satisfy XapiRestrictCodeSelectorLimit in the runtime.
 VOID Dirtbox::InitializeDummyKernel()
 {
     PDUMMY_KERNEL DummyKernel = (PDUMMY_KERNEL)VirtualAlloc(
@@ -86,9 +84,11 @@ VOID Dirtbox::InitializeDummyKernel()
         FatalPrint("InitializeDummyKernel: Could not turn allocate dummy kernel.");
     memset(DummyKernel, 0, sizeof(DUMMY_KERNEL));
 
-    DummyKernel->DosHeader.e_lfanew = sizeof(IMAGE_DOS_HEADER);
+    // XapiRestrictCodeSelectorLimit only checks these fields.
+    DummyKernel->DosHeader.e_lfanew = sizeof(IMAGE_DOS_HEADER); // RVA of NtHeaders
     DummyKernel->FileHeader.SizeOfOptionalHeader = 0;
     DummyKernel->FileHeader.NumberOfSections = 1;
+    // as long as this doesn't start with "INIT"
     strncpy_s((PSTR)DummyKernel->SectionHeader.Name, 8, "DONGS", 8);
 
     DebugPrint("InitializeDummyKernel: Dummy kernel initialized successfully.");
@@ -106,14 +106,14 @@ VOID Dirtbox::InitializeDrives()
     if (!VALID_HANDLE(CurrentDirectory))
         FatalPrint("InitializeDrives: Could not open current directory.");
 
-    CreateDirectoryA("Dummy", NULL);
+    // Xbox partitions
     CreateDirectoryA("C_", NULL);
     CreateDirectoryA("D_", NULL);
     CreateDirectoryA("T_", NULL);
     CreateDirectoryA("U_", NULL);
     CreateDirectoryA("Z_", NULL);
-
-    ::RtlInitAnsiString(&Partition1, Partition1Buffer);
+    // Dummy folder for volume openings.
+    CreateDirectoryA("Dummy", NULL);
 
     DebugPrint("InitializeDrives: Virtual drives initialized successfully.");
 }

@@ -861,7 +861,8 @@ NTSTATUS WINAPI Dirtbox::NtOpenFile(
 
     // Call Windows NT equivalent
     Res = ::NtOpenFile(
-        FileHandle, DesiredAccess, &NtObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions
+        FileHandle, DesiredAccess, &NtObjectAttributes, IoStatusBlock, 
+        ShareAccess, OpenOptions
     );
 
     SwapTibs();
@@ -935,7 +936,7 @@ NTSTATUS WINAPI Dirtbox::NtQueryVirtualMemory(
 
 NTSTATUS WINAPI Dirtbox::NtQueryVolumeInformationFile(
     HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FsInformation, DWORD Length, 
-    DWORD FsInformationClass
+    FS_INFORMATION_CLASS FsInformationClass
 )
 {
     SwapTibs();
@@ -947,9 +948,10 @@ NTSTATUS WINAPI Dirtbox::NtQueryVolumeInformationFile(
         FileHandle, IoStatusBlock, FsInformation, Length, FsInformationClass
     );
 
-    if (FsInformationClass == 3)
+    if (FsInformationClass == FileFsSizeInformation)
     {
         PFILE_FS_SIZE_INFORMATION Fs = (PFILE_FS_SIZE_INFORMATION)FsInformation;
+        // fucking magic over here, product has to equal 0x4000
         Fs->SectorsPerAllocationUnit = 4;
         Fs->BytesPerSector = 0x1000;
     }

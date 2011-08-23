@@ -282,6 +282,7 @@ VOID WINAPI Dirtbox::Initialize()
 
 // The reason DebugPrint and FatalPrint are in assembly and declared NAKED
 // is there is no other way to pass variadic parameters to printf
+// NOTE: Do we need to call fflush(stdout) here?
 VOID NAKED Dirtbox::DebugPrint(PSTR Format, ...)
 {
     __asm
