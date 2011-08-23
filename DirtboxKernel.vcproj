@@ -67,6 +67,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/LARGEADDRESSAWARE"
+				AdditionalDependencies="ntdll.lib"
 				OutputFile="$(OutDir)\DbE.dll"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
@@ -93,7 +94,6 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				Description=""
 				CommandLine=""
 			/>
 		</Configuration>
@@ -146,6 +146,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/LARGEADDRESSAWARE"
+				AdditionalDependencies="ntdll.lib"
 				OutputFile="$(OutDir)\DbE.dll"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
@@ -174,7 +175,6 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				Description=""
 				CommandLine=""
 			/>
 		</Configuration>
@@ -192,11 +192,11 @@
 				>
 			</File>
 			<File
-				RelativePath=".\DirtboxException.cpp"
+				RelativePath=".\DirtboxGraphics.cpp"
 				>
 			</File>
 			<File
-				RelativePath=".\DirtboxGraphics.cpp"
+				RelativePath=".\DirtboxHacks.cpp"
 				>
 			</File>
 			<File

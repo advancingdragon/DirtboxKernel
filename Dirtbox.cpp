@@ -1,6 +1,11 @@
 #include "Dirtbox.h"
 
-using namespace Dirtbox;
+namespace Dirtbox
+{
+    CRITICAL_SECTION PrintLock;
+    DWORD PrintReturn;
+    CHAR PrintStringError[] = "Error: ";
+}
 
 BOOL WINAPI DllMain(
     HINSTANCE hInstDll, DWORD fdwReason, PVOID fImpLoad
@@ -11,8 +16,19 @@ BOOL WINAPI DllMain(
 
 VOID WINAPI Dirtbox::Initialize()
 {
+    // Initialize printing locks
+    InitializeCriticalSection(&PrintLock);
+
+    InitializeException();
+    InitializeDummyKernel();
+    InitializeDrives();
+    InitializeThreading();
+    if (!NT_SUCCESS(AllocateTib(20)))
+        FatalPrint("Initialize: Failed to allocate initial TIB.");
+    InitializeGraphics();
+
     // replace kernel import ordinals with pointer to our functions
-    PDWORD KernelImageThunks = (PDWORD)(*(PDWORD)KERNEL_IMAGE_THUNK_ADDR ^ DEBUG_KEY);
+    PDWORD KernelImageThunks = (PDWORD)(XBE_KERNEL_THUNK ^ XBE_KERNEL_THUNK_KEY);
     DWORD Thunk;
     for (int i = 0; Thunk = KernelImageThunks[i] & 0x7FFFFFFF, Thunk != NULL; i++)
     {
@@ -210,6 +226,9 @@ VOID WINAPI Dirtbox::Initialize()
         case 302:
             KernelImageThunks[i] = (DWORD)&RtlRaiseException;
             break;
+        case 312:
+            KernelImageThunks[i] = (DWORD)&RtlUnwind;
+            break;
         case 322:
             KernelImageThunks[i] = (DWORD)&XboxHardwareInfo;
             break;
@@ -246,21 +265,78 @@ VOID WINAPI Dirtbox::Initialize()
         case 360:
             KernelImageThunks[i] = (DWORD)&HalInitiateShutdown;
             break;
+        default:
+            FatalPrint("Initialize: Unimplemented kernel function %i.", Thunk);
         }
     }
 
-    InitializeThreading();
-    AllocateTib(0);
-    AddVectoredExceptionHandler(1, &ExceptionHandler);
-    if (InitializeGraphics() != 0)
-    {
-        exit(1);
-    }
-
+    DebugPrint("Initialize: All initialized successfully, starting app.");
     SwapTibs();
 
-    VOID (*MainRoutine)() = (VOID (*)())(*(DWORD *)KERNEL_IMAGE_THUNK_ADDR ^ DEBUG_KEY);
+    PMAIN_ROUTINE MainRoutine = (PMAIN_ROUTINE)(XBE_ENTRY_POINT ^ XBE_ENTRY_POINT_KEY);
     MainRoutine();
 
     SwapTibs();
+    FreeTib();
+}
+
+// The reason DebugPrint and FatalPrint are in assembly and declared NAKED
+// is there is no other way to pass variadic parameters to printf
+VOID NAKED Dirtbox::DebugPrint(PSTR Format, ...)
+{
+    __asm
+    {
+        // EnterCriticalSection(&PrintLock)
+        push offset PrintLock
+        call dword ptr [EnterCriticalSection]
+
+        // printf(<original parameters to DebugPrint>)
+        pop dword ptr [PrintReturn]
+        call dword ptr [printf]
+        push dword ptr [PrintReturn]
+
+        // putchar('\n')
+        push '\n'
+        call dword ptr [putchar]
+        add esp, 4
+
+        // LeaveCriticalSection(&PrintLock)
+        push offset PrintLock
+        call dword ptr [LeaveCriticalSection]
+        ret
+    }
+}
+
+VOID NAKED Dirtbox::FatalPrint(PSTR Format, ...)
+{
+    __asm
+    {
+        // EnterCriticalSection(&PrintLock)
+        push offset PrintLock
+        call dword ptr [EnterCriticalSection]
+
+        // printf("Error: ")
+        push offset PrintStringError
+        call dword ptr [printf]
+        add esp, 4
+
+        // printf(<original parameters to FatalPrint>)
+        pop dword ptr [PrintReturn]
+        call dword ptr [printf]
+        push dword ptr [PrintReturn]
+
+        // putchar('\n')
+        push '\n'
+        call dword ptr [putchar]
+        add esp, 4
+
+        // LeaveCriticalSection(&PrintLock)
+        push offset PrintLock
+        call dword ptr [LeaveCriticalSection]
+
+        // exit(1)
+        push 1
+        call dword ptr [exit]
+        add esp, 4
+    }
 }

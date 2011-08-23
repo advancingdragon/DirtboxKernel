@@ -1,28 +1,104 @@
 #include "Dirtbox.h"
 #include "Native.h"
 
-using namespace Dirtbox;
+#include <process.h>
+#include <map>
 
-DWORD Dirtbox::HalDiskCachePartitionCount = 3;
-XBOX_HARDWARE_INFO Dirtbox::XboxHardwareInfo;
-DWORD Dirtbox::LaunchDataPage;
-DWORD Dirtbox::XboxHDKey;
-DWORD Dirtbox::XboxKrnlVersion;
-DWORD Dirtbox::XeImageFileName;
-DWORD Dirtbox::IdexChannelObject;
+namespace Dirtbox
+{
+    DWORD HalDiskCachePartitionCount = 3;
+    DWORD LaunchDataPage = 0;
+    XBOX_HARDWARE_INFO XboxHardwareInfo;
+    PCHAR XboxHDKey = NULL;
+    XBOX_KRNL_VERSION XboxKrnlVersion;
+    DWORD XeImageFileName;
+    DWORD IdexChannelObject;
 
-// TODO: need to put critical sections around each of these
-// in case they are used in a multithreaded way
-static PVOID AvpSavedDataAddress = (PVOID)0;
+    // TODO: need to put critical sections around each of these
+    // in case they are used in a multithreaded way
+    PVOID AvpSavedDataAddress = (PVOID)0;
+    std::map<PXBOX_CRITICAL_SECTION, RTL_CRITICAL_SECTION> CriticalSections;
 
-#define IN_DRIVE(path, drive) \
-    (toupper((path)[0]) == drive && path[1] == ':' && path[2] == '\\')
+    BOOLEAN IsValidDosPath(PANSI_STRING String);
+    NTSTATUS ConvertObjectAttributes(
+        POBJECT_ATTRIBUTES Destination, PUNICODE_STRING ObjectName, PWSTR Buffer, 
+        PXBOX_OBJECT_ATTRIBUTES Source
+    );
+}
+
+BOOLEAN Dirtbox::IsValidDosPath(PANSI_STRING String)
+{
+    return String->Length >= 3 &&
+        strpbrk(String->Buffer, "CDTUZcdtuz") == String->Buffer &&
+        strncmp(String->Buffer + 1, ":\\", 2) == 0;
+}
+
+NTSTATUS Dirtbox::ConvertObjectAttributes(
+    POBJECT_ATTRIBUTES Destination, PUNICODE_STRING ObjectName, PWSTR Buffer, 
+    PXBOX_OBJECT_ATTRIBUTES Source
+)
+{
+    if (Source->RootDirectory == OB_DOS_DEVICES)
+    {
+        // validate correctness of path
+        if (!IsValidDosPath(Source->ObjectName))
+        {
+            DebugPrint("ConvertObjectAttributes: Invalid path name.");
+            return STATUS_OBJECT_NAME_INVALID;
+        }
+
+        // build the new path
+        RtlInitEmptyUnicodeString(ObjectName, Buffer, MAX_PATH);
+        RtlAnsiStringToUnicodeString(ObjectName, Source->ObjectName, FALSE);
+
+        // ':' is not an allowed char in names, so replace it with _
+        ObjectName->Buffer[1] = L'_';
+
+        /*
+        // D:\ refers to current directory
+        if (ObjectName->Buffer[0] == L'D' || ObjectName->Buffer[0] == L'd')
+        {
+            // remove D:\ in the beginning of string
+            ObjectName->Length -= 3;
+            for (SHORT i = 0; i < ObjectName->Length; i++)
+                ObjectName->Buffer[i] = ObjectName->Buffer[i + 3];
+            ObjectName->Buffer[ObjectName->Length + 1] = L'\0';
+        }
+        else
+        {
+            // ':' is not an allowed char in names, so replace it with _
+            ObjectName->Buffer[1] = L'_';
+        }
+        */
+    }
+    else if (Source->RootDirectory == NULL)
+    {
+        // build the new path
+        RtlInitEmptyUnicodeString(ObjectName, Buffer, MAX_PATH);
+        RtlAppendUnicodeToString(ObjectName, L"Dummy");
+    }
+    else
+    {
+        DebugPrint("ConvertObjectAttributes: Invalid root directory.");
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    // Convert XBOX_OBJECT_ATTRIBUTES to Windows NT OBJECT_ATTRIBUTES
+    Destination->Length = sizeof(OBJECT_ATTRIBUTES);
+    Destination->ObjectName = ObjectName;
+    Destination->Attributes = Source->Attributes;
+    Destination->RootDirectory = CurrentDirectory;
+    Destination->SecurityDescriptor = NULL;
+    Destination->SecurityQualityOfService = NULL;
+
+    return STATUS_SUCCESS;
+}
 
 PVOID WINAPI Dirtbox::AvGetSavedDataAddress()
 {
     SwapTibs();
 
-    DEBUG_PRINT("AvGetSavedDataAddress\n");
+    DebugPrint("AvGetSavedDataAddress");
 
     SwapTibs();
     return AvpSavedDataAddress;
@@ -34,7 +110,7 @@ VOID WINAPI Dirtbox::AvSendTVEncoderOption(
 {
     SwapTibs();
 
-    DEBUG_PRINT("AvSendTVEncoderOption: 0x%08x %i %i\n", 
+    DebugPrint("AvSendTVEncoderOption: 0x%08x %i %i", 
         RegisterBase, Option, Param);
 
     if (Result != (PDWORD)0)
@@ -49,7 +125,7 @@ DWORD WINAPI Dirtbox::AvSetDisplayMode(
 )
 {
     SwapTibs();
-    DEBUG_PRINT("AvSetDisplayMode: 0x%08x %i %i %i %i 0x%x\n", 
+    DebugPrint("AvSetDisplayMode: 0x%08x %i %i %i %i 0x%x", 
         RegisterBase, Step, Mode, Format, Pitch, FrameBuffer);
 
     SwapTibs();
@@ -62,7 +138,7 @@ VOID WINAPI Dirtbox::AvSetSavedDataAddress(
 {
     SwapTibs();
 
-    DEBUG_PRINT("AvSetSavedDataAddress: 0x%08x\n", 
+    DebugPrint("AvSetSavedDataAddress: 0x%08x", 
         Address);
 
     AvpSavedDataAddress = Address;
@@ -76,7 +152,7 @@ NTSTATUS WINAPI Dirtbox::DbgPrint(
 {
     SwapTibs();
 
-    DEBUG_PRINT("DbgPrint: \"%s\"\n", Output);
+    DebugPrint("DbgPrint: \"%s\"", Output);
 
     SwapTibs();
     return STATUS_SUCCESS;
@@ -90,7 +166,7 @@ NTSTATUS WINAPI Dirtbox::ExQueryNonVolatileSetting(
 {
     SwapTibs();
 
-    DEBUG_PRINT("ExQueryNonVolatileSetting: %i ...\n", ValueIndex);
+    DebugPrint("ExQueryNonVolatileSetting: %i ...", ValueIndex);
 
     SwapTibs();
 
@@ -103,7 +179,7 @@ NTSTATUS WINAPI Dirtbox::ExQueryNonVolatileSetting(
         *(DWORD *)Value = 0;
         return STATUS_SUCCESS;
     default:
-        return -1;
+        return STATUS_UNSUCCESSFUL;
     }
 }
 
@@ -113,7 +189,7 @@ DWORD WINAPI Dirtbox::HalGetInterruptVector(
 {
     SwapTibs();
 
-    DEBUG_PRINT("HalGetInterruptVector: 0x%x 0x%08x\n", 
+    DebugPrint("HalGetInterruptVector: 0x%x 0x%08x", 
         BusInterruptLevel, Irql);
 
     DWORD result;
@@ -134,7 +210,7 @@ VOID WINAPI Dirtbox::HalReadWritePCISpace(
 {
     SwapTibs();
 
-    DEBUG_PRINT("HalReadWritePCISpace: 0x%x 0x%x 0x%x 0x%08x %i %i\n", 
+    DebugPrint("HalReadWritePCISpace: 0x%x 0x%x 0x%x 0x%08x %i %i", 
         BusNumber, SlotNumber, RegisterNumber, Buffer, Length, WritePCISpace);
 
     if (!WritePCISpace) // read
@@ -153,7 +229,7 @@ VOID WINAPI Dirtbox::HalRegisterShutdownNotification(
 {
     SwapTibs();
 
-    DEBUG_PRINT("HalRegisterShutdownNotification: 0x%08x 0x%x\n", 
+    DebugPrint("HalRegisterShutdownNotification: 0x%08x 0x%x", 
         ShutdownRegistration, Register);
 
     SwapTibs();
@@ -165,10 +241,11 @@ VOID WINAPI Dirtbox::HalReturnToFirmware(
 {
     SwapTibs();
 
-    DEBUG_PRINT("HalReturnToFirmware: 0x%x\n", 
+    DebugPrint("HalReturnToFirmware: 0x%x", 
         Routine);
 
-    ExitProcess(0);
+    FreeTib();
+    exit(0);
 }
 
 NTSTATUS WINAPI Dirtbox::IoCreateSymbolicLink(
@@ -178,7 +255,7 @@ NTSTATUS WINAPI Dirtbox::IoCreateSymbolicLink(
 {
     SwapTibs();
 
-    DEBUG_PRINT("IoCreateSymbolicLink: \"%s\" \"%s\"\n", 
+    DebugPrint("IoCreateSymbolicLink: \"%s\" \"%s\"", 
         SymbolicLinkName->Buffer, DeviceName->Buffer);
 
     // TODO: critical section
@@ -193,7 +270,7 @@ NTSTATUS WINAPI Dirtbox::IoDeleteSymbolicLink(
 {
     SwapTibs();
 
-    DEBUG_PRINT("IoDeleteSymbolicLink: \"%s\"\n", 
+    DebugPrint("IoDeleteSymbolicLink: \"%s\"", 
         SymbolicLinkName->Buffer);
 
     // TODO: critical section
@@ -208,10 +285,8 @@ VOID WINAPI Dirtbox::KeBugCheck(
 {
     SwapTibs();
 
-    DEBUG_PRINT("KeBugCheck: %i\n", 
+    FatalPrint("KeBugCheck: %i", 
         BugCheckCode);
-
-    ExitProcess(1);
 }
 
 BOOLEAN WINAPI Dirtbox::KeConnectInterrupt(
@@ -220,7 +295,7 @@ BOOLEAN WINAPI Dirtbox::KeConnectInterrupt(
 {
     SwapTibs();
 
-    DEBUG_PRINT("KeConnectInterrupt: %i %i %i %i %i %i\n",
+    DebugPrint("KeConnectInterrupt: %i %i %i %i %i %i",
         Interrupt->BusInterruptLevel, Interrupt->Irql, 
         Interrupt->Connected, Interrupt->ShareVector, 
         Interrupt->Mode, Interrupt->ServiceCount);
@@ -243,7 +318,7 @@ NTSTATUS WINAPI Dirtbox::KeDelayExecutionThread(
 {
     SwapTibs();
 
-    DEBUG_PRINT("KeDelayExecutionThread: %i %i 0x%08x\n", 
+    DebugPrint("KeDelayExecutionThread: %i %i 0x%08x", 
         WaitMode, Alertable, Interval);
 
     NTSTATUS Ret = ::NtDelayExecution(Alertable, Interval);
@@ -257,7 +332,7 @@ BOOLEAN WINAPI Dirtbox::KeDisconnectInterrupt(
 )
 {
     SwapTibs();
-    DEBUG_PRINT("KeDisconnectInterrupt: 0x%08x 0x%08x %i %i %i %i %i %i\n",
+    DebugPrint("KeDisconnectInterrupt: 0x%08x 0x%08x %i %i %i %i %i %i",
         Interrupt->ServiceRoutine, Interrupt->ServiceContext,
         Interrupt->BusInterruptLevel, Interrupt->Irql, 
         Interrupt->Connected, Interrupt->ShareVector, 
@@ -281,7 +356,7 @@ VOID WINAPI Dirtbox::KeInitializeDpc(
 {
     SwapTibs();
 
-    DEBUG_PRINT("KeInitializeDpc: 0x%08x 0x%08x 0x%08x\n",
+    DebugPrint("KeInitializeDpc: 0x%08x 0x%08x 0x%08x",
         Dpc, DeferredRoutine, DeferredContext);
 
     Dpc->DeferredRoutine = DeferredRoutine;
@@ -299,7 +374,7 @@ VOID WINAPI Dirtbox::KeInitializeInterrupt(
 {
     SwapTibs();
 
-    DEBUG_PRINT("KeInitializeInterrupt: 0x%08x 0x%08x %i %i %i %i\n",
+    DebugPrint("KeInitializeInterrupt: 0x%08x 0x%08x %i %i %i %i",
         ServiceRoutine, ServiceContext, Vector, Irql, InterruptMode, ShareVector);
 
     Interrupt->ServiceRoutine = ServiceRoutine;
@@ -318,7 +393,7 @@ VOID WINAPI Dirtbox::KeInitializeTimerEx(
 {
     SwapTibs();
 
-    DEBUG_PRINT("KeInitializeTimerEx: %i %i 0x%08x\n", 
+    DebugPrint("KeInitializeTimerEx: %i %i 0x%08x", 
         Timer, Type);
 
     Timer->Header.Type = Type + 8;
@@ -339,7 +414,7 @@ BOOLEAN WINAPI Dirtbox::KeInsertQueueDpc(
 {
     SwapTibs();
 
-    DEBUG_PRINT("KeInsertQueueDpc: %i %i 0x%08x 0x%08x\n",
+    DebugPrint("KeInsertQueueDpc: %i %i 0x%08x 0x%08x",
         Dpc->Type, Dpc->Inserted, SystemArgument1, SystemArgument2);
 
     if (Dpc->Inserted)
@@ -362,7 +437,7 @@ VOID WINAPI Dirtbox::KeQuerySystemTime(
 {
     SwapTibs();
 
-    DEBUG_PRINT("KeQuerySystemTime: 0x%08x\n",
+    DebugPrint("KeQuerySystemTime: 0x%08x",
         CurrentTime);
 
     SYSTEMTIME SystemTime;
@@ -383,7 +458,7 @@ KIRQL WINAPI Dirtbox::KeRaiseIrqlToDpcLevel()
 
     SwapTibs();
 
-    DEBUG_PRINT("KeRaiseIrqlToDpcLevel\n");
+    DebugPrint("KeRaiseIrqlToDpcLevel");
 
     KIRQL OldIrql = (KIRQL)Kpcr->Irql;
     Kpcr->Irql = 2;
@@ -398,22 +473,16 @@ BOOLEAN WINAPI Dirtbox::KeSetEvent(
 {
     SwapTibs();
 
-    DEBUG_PRINT("KeSetEvent: 0x%08x %i %i\n",
+    DebugPrint("KeSetEvent: 0x%08x %i %i",
         Event, Increment, Wait);
 
     // thinking of how to implement Ke events with the Windows API event objects.
     // maybe a hash table of addresses of KEVENT objects?
     if (Event->Header.Type != 0)
-    {
-        DEBUG_PRINT("KeSetEvent: Events other than Notification Events not implemented.\n");
-        ExitProcess(1);
-    }
+        FatalPrint("KeSetEvent: Events other than Notification Events not implemented.");
 
     if (Event->Header.WaitListHead.Flink != &Event->Header.WaitListHead)
-    {
-        DEBUG_PRINT("KeSetEvent: Events with more than two threads not supported.\n");
-        ExitProcess(1);
-    }
+        FatalPrint("KeSetEvent: Events with more than two threads not supported.");
 
     Event->Header.SignalState = 1;
 
@@ -427,7 +496,7 @@ BOOLEAN WINAPI Dirtbox::KeSetTimer(
 {
     SwapTibs();
 
-    DEBUG_PRINT("KeSetTimer: 0x%08x 0x%08x 0x%08x\n",
+    DebugPrint("KeSetTimer: 0x%08x 0x%08x 0x%08x",
         Timer, DueTime, Dpc);
 
     // Don't really need to implement it yet, only used in shutdown
@@ -446,7 +515,7 @@ NTSTATUS WINAPI Dirtbox::KeWaitForSingleObject(
 {
     SwapTibs();
 
-    DEBUG_PRINT("KeWaitForSingleObject: 0x%08x %i %i %i %i 0x%08x\n",
+    DebugPrint("KeWaitForSingleObject: 0x%08x %i %i %i %i 0x%08x",
         Object, WaitReason, WaitMode, Alertable, Timeout);
 
     while (((PKEVENT)Object)->Header.SignalState > 0)
@@ -468,7 +537,7 @@ DWORD __fastcall Dirtbox::KfLowerIrql(KIRQL NewIrql)
 
     SwapTibs();
 
-    DEBUG_PRINT("KfLowerIrql: %i\n", NewIrql);
+    DebugPrint("KfLowerIrql: %i", NewIrql);
 
     Kpcr->Irql = NewIrql;
 
@@ -480,7 +549,7 @@ PVOID WINAPI Dirtbox::MmAllocateContiguousMemory(
     DWORD NumberOfBytes
 )
 {
-    return MmAllocateContiguousMemoryEx(NumberOfBytes, 0, 0xFFFFFFFFu, 0, PAGE_READWRITE);
+    return MmAllocateContiguousMemoryEx(NumberOfBytes, 0, 0xFFFFFFFF, 0, PAGE_READWRITE);
 }
 
 PVOID WINAPI Dirtbox::MmAllocateContiguousMemoryEx(
@@ -490,17 +559,26 @@ PVOID WINAPI Dirtbox::MmAllocateContiguousMemoryEx(
 {
     SwapTibs();
 
-    DEBUG_PRINT("MmAllocateContiguousMemoryEx: 0x%x 0x%08x 0x%08x 0x%x 0x%08x\n",
+    DebugPrint("MmAllocateContiguousMemoryEx: 0x%x 0x%08x 0x%08x 0x%x 0x%08x",
         NumberOfBytes, LowestAcceptableAddress, HighestAcceptableAddress, Alignment, ProtectionType);
 
-    PVOID Buf;
+    if ((Alignment - 1) & Alignment)
+    {
+        DebugPrint("MmAllocateContiguousMemoryEx: alignment not power of 2");
+        return NULL;
+    }
+    if (Alignment == 0)
+        Alignment = 0x1000;
+
     DWORD AlignmentMask = ~(Alignment - 1);
+    PVOID Buf;
     DWORD StartAddress;
     DWORD EndAddress;
     if (HighestAcceptableAddress == 0xFFFFFFFF)
         EndAddress = 0x83FD6000;
     else
         EndAddress = HighestAcceptableAddress | 0x80000000;
+    ProtectionType &= ~PAGE_WRITECOMBINE;
 
     while (TRUE)
     {
@@ -525,7 +603,7 @@ PVOID WINAPI Dirtbox::MmClaimGpuInstanceMemory(
 {
     SwapTibs();
 
-    DEBUG_PRINT("MmClaimGpuInstanceMemory: 0x%x 0x%08x\n",
+    DebugPrint("MmClaimGpuInstanceMemory: 0x%x 0x%08x",
         NumberOfBytes, NumberOfPaddingBytes);
 
     *NumberOfPaddingBytes = PADDING_SIZE;
@@ -547,7 +625,7 @@ VOID WINAPI Dirtbox::MmFreeContiguousMemory(
 {
     SwapTibs();
 
-    DEBUG_PRINT("MmFreeContiguousMemory: 0x%08x\n",
+    DebugPrint("MmFreeContiguousMemory: 0x%08x",
         BaseAddress);
 
     VirtualFree(BaseAddress, 0, MEM_RELEASE);
@@ -561,7 +639,7 @@ VOID WINAPI Dirtbox::MmPersistContiguousMemory(
 {
     SwapTibs();
 
-    DEBUG_PRINT("MmPersistContiguousMemory: 0x%08x 0x%x %i\n",
+    DebugPrint("MmPersistContiguousMemory: 0x%08x 0x%x %i",
         BaseAddress, NumberOfBytes, Persist);
 
     // Not sure if we need to implement this
@@ -575,7 +653,7 @@ DWORD WINAPI Dirtbox::MmQueryAddressProtect(
 {
     SwapTibs();
 
-    DEBUG_PRINT("MmQueryAddressProtect: 0x%08x\n",
+    DebugPrint("MmQueryAddressProtect: 0x%08x",
         VirtualAddress);
 
     MEMORY_BASIC_INFORMATION MemInfo;
@@ -591,7 +669,7 @@ DWORD WINAPI Dirtbox::MmQueryAllocationSize(
 {
     SwapTibs();
 
-    DEBUG_PRINT("MmQueryAllocationSize: 0x%08x\n",
+    DebugPrint("MmQueryAllocationSize: 0x%08x",
         BaseAddress);
 
     MEMORY_BASIC_INFORMATION MemInfo;
@@ -607,7 +685,7 @@ DWORD WINAPI Dirtbox::MmSetAddressProtect(
 {
     SwapTibs();
 
-    DEBUG_PRINT("MmSetAddressProtect: 0x%08x 0x%x 0x%08x\n",
+    DebugPrint("MmSetAddressProtect: 0x%08x 0x%x 0x%08x",
         BaseAddress, NumberOfBytes, NewProtect);
 
     DWORD Dummy;
@@ -624,12 +702,14 @@ NTSTATUS WINAPI Dirtbox::NtAllocateVirtualMemory(
 {
     SwapTibs();
 
-    DEBUG_PRINT("NtAllocateVirtualMemory: 0x%08x 0x%x 0x%x 0x%x 0x%x\n",
+    DebugPrint("NtAllocateVirtualMemory: 0x%08x 0x%x 0x%x 0x%x 0x%x",
         BaseAddress, ZeroBits, *AllocationSize, AllocationType, Protect);
 
     NTSTATUS Res = ::NtAllocateVirtualMemory(
         GetCurrentProcess(), BaseAddress, ZeroBits, AllocationSize, 
         AllocationType, Protect);
+
+    DebugPrint("Returned: 0x%08x", Res);
     
     SwapTibs();
     return Res;
@@ -641,7 +721,7 @@ NTSTATUS WINAPI Dirtbox::NtClose(
 {
     SwapTibs();
 
-    DEBUG_PRINT("NtClose: 0x%x",
+    DebugPrint("NtClose: 0x%x",
         Handle);
 
     NTSTATUS Res = ::NtClose(Handle);
@@ -656,76 +736,30 @@ NTSTATUS WINAPI Dirtbox::NtCreateFile(
     DWORD ShareAccess, DWORD CreateDisposition, DWORD CreateOptions 
 )
 {
-    NTSTATUS Res;
-
     SwapTibs();
 
-    DEBUG_PRINT("NtCreateFile: 0x%08x 0x%x 0x%08x \"%s\" 0x%08x 0x%08x 0x%x 0x%x 0x%x 0x%x\n",
+    DebugPrint("NtCreateFile: 0x%08x 0x%x 0x%08x \"%s\" 0x%08x 0x%08x 0x%x 0x%x 0x%x 0x%x",
         FileHandle, DesiredAccess, ObjectAttributes, ObjectAttributes->ObjectName->Buffer, 
         IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, 
         CreateDisposition, CreateOptions);
 
-    if (ObjectAttributes->RootDirectory == OB_DOS_DEVICES)
+    OBJECT_ATTRIBUTES NtObjectAttributes;
+    UNICODE_STRING ObjectName;
+    WCHAR Buffer[MAX_PATH];
+    NTSTATUS Res = ConvertObjectAttributes(
+        &NtObjectAttributes, &ObjectName, Buffer, ObjectAttributes
+    );
+    if (!NT_SUCCESS(Res))
     {
-        // Patch drives to directories
-        CHAR Buffer[MAX_PATH];
-        switch (toupper(ObjectAttributes->ObjectName->Buffer[0]))
-        {
-        case 'D':
-            strncpy_s(Buffer, MAX_PATH, "\\??\\C:\\Dirtbox\\D\\", MAX_PATH);
-            break;
-        case 'T':
-            strncpy_s(Buffer, MAX_PATH, "\\??\\C:\\Dirtbox\\T\\", MAX_PATH);
-            break;
-        case 'U':
-            strncpy_s(Buffer, MAX_PATH, "\\??\\C:\\Dirtbox\\U\\", MAX_PATH);
-            break;
-        case 'Z':
-            strncpy_s(Buffer, MAX_PATH, "\\??\\C:\\Dirtbox\\Z\\", MAX_PATH);
-            break;
-        default:
-            DEBUG_PRINT("NtCreateFile: invalid drive.\n");
-            ExitProcess(1);
-            break;
-        }
-        strncat_s(Buffer, MAX_PATH, &ObjectAttributes->ObjectName->Buffer[3], MAX_PATH);
-
-        // Convert Xbox path (in ANSI) to Windows NT format (UNICODE_STRING)
-        WCHAR UnicodeBuffer[MAX_PATH];
-        UNICODE_STRING ObjectName;
-        size_t Converted;
-        mbstowcs_s(&Converted, UnicodeBuffer, MAX_PATH, Buffer, MAX_PATH);
-        ObjectName.Length = wcslen(UnicodeBuffer) * sizeof(WCHAR);
-        ObjectName.MaximumLength = MAX_PATH;
-        ObjectName.Buffer = UnicodeBuffer;
-
-        // Convert XBOX_OBJECT_ATTRIBUTES to Windows NT OBJECT_ATTRIBUTES
-        OBJECT_ATTRIBUTES NtObjectAttributes;
-        NtObjectAttributes.Length = sizeof(OBJECT_ATTRIBUTES);
-        NtObjectAttributes.ObjectName = &ObjectName;
-        NtObjectAttributes.Attributes = ObjectAttributes->Attributes;
-        NtObjectAttributes.RootDirectory = NULL;
-        NtObjectAttributes.SecurityDescriptor = NULL;
-
-        // Call Windows NT equivalent
-        Res = ::NtCreateFile(
-            FileHandle, DesiredAccess, &NtObjectAttributes, IoStatusBlock, 
-            AllocationSize, FileAttributes, ShareAccess, CreateDisposition, 
-            CreateOptions, NULL, 0
-        );
+        SwapTibs();
+        return Res;
     }
-    else if (ObjectAttributes->RootDirectory == NULL)
-    {
-        if (CreateOptions & 1)
-            Res = STATUS_NOT_A_DIRECTORY;
-        else
-            Res = STATUS_OBJECT_NAME_COLLISION;
-    }
-    else
-    {
-        DEBUG_PRINT("NtCreateFile: Invalid root directory.\n");
-        ExitProcess(1);
-    }
+
+    // Call Windows NT equivalent
+    Res = ::NtCreateFile(
+        FileHandle, DesiredAccess, &NtObjectAttributes, IoStatusBlock, AllocationSize, 
+        FileAttributes, ShareAccess, CreateDisposition, CreateOptions, NULL, 0
+    );
 
     SwapTibs();
     return Res;
@@ -738,8 +772,8 @@ NTSTATUS WINAPI Dirtbox::NtDeviceIoControlFile(
 {
     SwapTibs();
 
-    DEBUG_PRINT("NtDeviceIoControlFile: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%x " 
-        "0x%08x 0x%x 0x%08x 0x%x\n",
+    DebugPrint("NtDeviceIoControlFile: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%x " 
+        "0x%08x 0x%x 0x%08x 0x%x",
         FileHandle, Event, ApcRoutine, ApcContext,
         IoStatusBlock, IoControlCode, InputBuffer, InputBufferLength,
         OutputBuffer, OutputBufferLength);
@@ -747,7 +781,7 @@ NTSTATUS WINAPI Dirtbox::NtDeviceIoControlFile(
     // TODO: not needed unless mounting utility drive
 
     SwapTibs();
-    return -1;
+    return STATUS_UNSUCCESSFUL;
 }
 
 NTSTATUS WINAPI Dirtbox::NtFlushBuffersFile(
@@ -756,7 +790,7 @@ NTSTATUS WINAPI Dirtbox::NtFlushBuffersFile(
 {
     SwapTibs();
 
-    DEBUG_PRINT("NtFlushBuffersFile: 0x%08x 0x%08x\n", 
+    DebugPrint("NtFlushBuffersFile: 0x%08x 0x%08x", 
         FileHandle, IoStatusBlock);
 
     DWORD Res = ::NtFlushBuffersFile(FileHandle, IoStatusBlock);
@@ -771,7 +805,7 @@ NTSTATUS WINAPI Dirtbox::NtFreeVirtualMemory(
 {
     SwapTibs();
 
-    DEBUG_PRINT("NtFreeVirtualMemory: 0x%08x 0x%08x 0x%x\n", 
+    DebugPrint("NtFreeVirtualMemory: 0x%08x 0x%08x 0x%x", 
         BaseAddress, FreeSize, FreeType);
 
     NTSTATUS Res = ::NtFreeVirtualMemory(
@@ -790,8 +824,8 @@ NTSTATUS WINAPI Dirtbox::NtFsControlFile(
 {
     SwapTibs();
 
-    DEBUG_PRINT("NtFsControlFile: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%x " 
-        "0x%08x 0x%x 0x%08x 0x%x\n",
+    DebugPrint("NtFsControlFile: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%x " 
+        "0x%08x 0x%x 0x%08x 0x%x",
         FileHandle, Event, ApcRoutine, ApcContext,
         IoStatusBlock, IoControlCode, InputBuffer, InputBufferLength,
         OutputBuffer, OutputBufferLength);
@@ -799,7 +833,7 @@ NTSTATUS WINAPI Dirtbox::NtFsControlFile(
     // TODO: not needed unless mounting utility drive
 
     SwapTibs();
-    return -1;
+    return STATUS_UNSUCCESSFUL;
 }
 
 NTSTATUS WINAPI Dirtbox::NtOpenFile(
@@ -809,14 +843,29 @@ NTSTATUS WINAPI Dirtbox::NtOpenFile(
 {
     SwapTibs();
 
-    DEBUG_PRINT("NtOpenFile: 0x%08x 0x%x 0x%08x \"%s\" 0x%08x 0x%x 0x%x\n",
+    DebugPrint("NtOpenFile: 0x%08x 0x%x 0x%08x \"%s\" 0x%08x 0x%x 0x%x",
         FileHandle, DesiredAccess, ObjectAttributes, ObjectAttributes->ObjectName->Buffer, 
         IoStatusBlock, ShareAccess, OpenOptions);
 
-    // TODO: not needed unless mounting utility drive or setting up drive
+    OBJECT_ATTRIBUTES NtObjectAttributes;
+    UNICODE_STRING ObjectName;
+    WCHAR Buffer[MAX_PATH];
+    NTSTATUS Res = ConvertObjectAttributes(
+        &NtObjectAttributes, &ObjectName, Buffer, ObjectAttributes
+    );
+    if (!NT_SUCCESS(Res))
+    {
+        SwapTibs();
+        return Res;
+    }
+
+    // Call Windows NT equivalent
+    Res = ::NtOpenFile(
+        FileHandle, DesiredAccess, &NtObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions
+    );
 
     SwapTibs();
-    return -1;
+    return Res;
 }
 
 NTSTATUS WINAPI Dirtbox::NtOpenSymbolicLinkObject(
@@ -825,7 +874,7 @@ NTSTATUS WINAPI Dirtbox::NtOpenSymbolicLinkObject(
 {
     SwapTibs();
 
-    DEBUG_PRINT("NtOpenSymbolicLinkObject: 0x%08x 0x%08x \"%s\"",
+    DebugPrint("NtOpenSymbolicLinkObject: 0x%08x 0x%08x \"%s\"",
         LinkHandle, ObjectAttributes, ObjectAttributes->ObjectName->Buffer);
 
     // Can fail, then it assumes to be CD-ROM
@@ -841,7 +890,7 @@ NTSTATUS WINAPI Dirtbox::NtQueryInformationFile(
 {
     SwapTibs();
 
-    DEBUG_PRINT("NtQueryInformationFile: 0x%08x 0x%08x 0x%08x 0x%x 0x%x\n",
+    DebugPrint("NtQueryInformationFile: 0x%08x 0x%08x 0x%08x 0x%x 0x%x",
         FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
 
     DWORD Res = ::NtQueryInformationFile(
@@ -858,7 +907,7 @@ NTSTATUS WINAPI Dirtbox::NtQuerySymbolicLinkObject(
 {
     SwapTibs();
 
-    DEBUG_PRINT("NtOpenSymbolicLinkObject: 0x%08x 0x%08x 0x%x",
+    DebugPrint("NtOpenSymbolicLinkObject: 0x%08x 0x%08x 0x%x",
         LinkHandle, LinkTarget, ReturnedLength);
 
     // Can fail, then it assumes to be CD-ROM
@@ -873,7 +922,7 @@ NTSTATUS WINAPI Dirtbox::NtQueryVirtualMemory(
 {
     SwapTibs();
 
-    DEBUG_PRINT("NtQueryVirtualMemory: 0x%08x 0x%08x\n",
+    DebugPrint("NtQueryVirtualMemory: 0x%08x 0x%08x",
         BaseAddress, MemoryInformation);
 
     NTSTATUS Res = VirtualQuery(
@@ -891,13 +940,22 @@ NTSTATUS WINAPI Dirtbox::NtQueryVolumeInformationFile(
 {
     SwapTibs();
 
-    DEBUG_PRINT("NtOpenFile: 0x%08x 0x%08x 0x%08x 0x%x 0x%08x\n",
+    DebugPrint("NtQueryVolumeInformationFile: 0x%08x 0x%08x 0x%08x 0x%x 0x%08x",
         FileHandle, IoStatusBlock, FsInformation, Length, FsInformationClass);
 
-    // TODO: not needed unless mounting utility drive or setting up drive
+    DWORD Res = ::NtQueryVolumeInformationFile(
+        FileHandle, IoStatusBlock, FsInformation, Length, FsInformationClass
+    );
+
+    if (FsInformationClass == 3)
+    {
+        PFILE_FS_SIZE_INFORMATION Fs = (PFILE_FS_SIZE_INFORMATION)FsInformation;
+        Fs->SectorsPerAllocationUnit = 4;
+        Fs->BytesPerSector = 0x1000;
+    }
 
     SwapTibs();
-    return -1;
+    return Res;
 }
 
 NTSTATUS WINAPI Dirtbox::NtReadFile(
@@ -907,7 +965,7 @@ NTSTATUS WINAPI Dirtbox::NtReadFile(
 {
     SwapTibs();
 
-    DEBUG_PRINT("NtReadFile: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%x 0x%08x\n",
+    DebugPrint("NtReadFile: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%x 0x%08x",
         FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset);
 
     NTSTATUS Res = ::NtReadFile(
@@ -925,7 +983,7 @@ NTSTATUS WINAPI Dirtbox::NtSetInformationFile(
 {
     SwapTibs();
 
-    DEBUG_PRINT("NtSetInformationFile: 0x%08x 0x%08x 0x%08x 0x%x 0x%x\n",
+    DebugPrint("NtSetInformationFile: 0x%08x 0x%08x 0x%08x 0x%x 0x%x",
         FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
 
     NTSTATUS Res = ::NtSetInformationFile(
@@ -949,7 +1007,7 @@ NTSTATUS WINAPI Dirtbox::NtWaitForSingleObjectEx(
 {
     SwapTibs();
 
-    DEBUG_PRINT("NtWaitForSingleObjectEx: 0x%08x 0x%x %i 0x%08x\n",
+    DebugPrint("NtWaitForSingleObjectEx: 0x%08x 0x%x %i 0x%08x",
         Handle, WaitMode, Alertable, Timeout);
 
     NTSTATUS Res = ::NtWaitForSingleObject(
@@ -967,7 +1025,7 @@ NTSTATUS WINAPI Dirtbox::NtWriteFile(
 {
     SwapTibs();
 
-    DEBUG_PRINT("NtWriteFile: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%x 0x%08x\n",
+    DebugPrint("NtWriteFile: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%x 0x%08x",
         FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset);
 
     NTSTATUS Res = ::NtWriteFile(
@@ -986,17 +1044,17 @@ NTSTATUS WINAPI Dirtbox::PsCreateSystemThreadEx(
 {
     SwapTibs();
 
-    DEBUG_PRINT("PsCreateSystemThreadEx: 0x%08x 0x%x 0x%x 0x%x 0x%08x "
-        "0x%08x 0x%08x %i %i 0x%08x\n",
+    DebugPrint("PsCreateSystemThreadEx: 0x%08x 0x%x 0x%x 0x%x 0x%08x "
+        "0x%08x 0x%08x %i %i 0x%08x",
         ThreadHandle, ThreadExtensionSize, KernelStackSize, TlsDataSize, ThreadId, 
         StartRoutine, StartContext, CreateSuspended, DebuggerThread, SystemRoutine);
 
-    PSHIM_CONTEXT ShimContext = (PSHIM_CONTEXT)malloc(sizeof(PSHIM_CONTEXT));
+    PSHIM_CONTEXT ShimContext = (PSHIM_CONTEXT)malloc(sizeof(SHIM_CONTEXT));
     if (ShimContext == NULL)
     {
-        DEBUG_PRINT("PsCreateSystemThreadEx: failed to allocate shim context.\n");
         SwapTibs();
-        return -1;
+        DebugPrint("PsCreateSystemThreadEx: failed to allocate shim context.");
+        return STATUS_UNSUCCESSFUL;
     }
 
     ShimContext->TlsDataSize = TlsDataSize;
@@ -1006,16 +1064,20 @@ NTSTATUS WINAPI Dirtbox::PsCreateSystemThreadEx(
 
     DWORD Flags = CreateSuspended ? CREATE_SUSPENDED : 0;
 
-    *ThreadHandle = CreateThread(
-        NULL, KernelStackSize, ShimCallback, ShimContext, Flags, ThreadId
+    /*
+    Is it better to use _beginthreadex, CreateThread, or NtCreateThread?
+    */
+    HANDLE Thr = (HANDLE)_beginthreadex(
+        NULL, KernelStackSize, &ShimCallback, ShimContext, Flags, NULL
     );
-    if (*ThreadHandle == NULL)
+    if (!VALID_HANDLE(Thr))
     {
         free(ShimContext);
         SwapTibs();
-        return -1;
+        return STATUS_UNSUCCESSFUL;
     }
 
+    *ThreadHandle = Thr;
     SwapTibs();
     return STATUS_SUCCESS;
 }
@@ -1026,100 +1088,206 @@ VOID WINAPI Dirtbox::PsTerminateSystemThread(
 {
     SwapTibs();
 
-    // Dont think we have to do anything here, since it's gonna return anyway, for now.
-    DEBUG_PRINT("PsTerminateSystemThread: %i\n", ExitStatus);
-
-    SwapTibs();
+    DebugPrint("PsTerminateSystemThread: %i", ExitStatus);
+    
+    // like the same thing as in ShimCallback
+    FreeTib();
+    _endthreadex(ExitStatus);
 }
 
-NTSTATUS WINAPI Dirtbox::RtlCompareMemoryUlong(
-    PDWORD Buffer, DWORD Size, DWORD Value
+SIZE_T WINAPI Dirtbox::RtlCompareMemoryUlong(
+    PVOID Source, SIZE_T Length, DWORD Pattern
 )
 {
-    return STATUS_SUCCESS;
+    SwapTibs();
+
+    DebugPrint("RtlCompareMemoryUlong: 0x%08x 0x%x 0x%x", Source, Length, Pattern);
+
+    SIZE_T Res = ::RtlCompareMemoryUlong(Source, Length, Pattern);
+
+    SwapTibs();
+    return Res;
 }
 
 NTSTATUS WINAPI Dirtbox::RtlEnterCriticalSection(
     PXBOX_CRITICAL_SECTION CriticalSection
 )
 {
-    return STATUS_SUCCESS;
+    SwapTibs();
+
+    DebugPrint("RtlEnterCriticalSection: 0x%08x", CriticalSection);
+
+    // Not sure if it can work this way, but oh well.
+    if (CriticalSections.count(CriticalSection) == 0)
+        ::RtlInitializeCriticalSection(&CriticalSections[CriticalSection]);
+    NTSTATUS Res = ::RtlEnterCriticalSection(&CriticalSections[CriticalSection]);
+
+    SwapTibs();
+    return Res;
 }
 
-NTSTATUS WINAPI Dirtbox::RtlEqualString(
+LONG WINAPI Dirtbox::RtlEqualString(
     PANSI_STRING String1, PANSI_STRING String2, BOOLEAN CaseInSensitive
 )
 {
-    return STATUS_SUCCESS;
+    SwapTibs();
+
+    DebugPrint("RtlEqualString: 0x%08x 0x%08x %i", String1, String2, CaseInSensitive);
+
+    LONG Res = ::RtlEqualString(String1, String2, CaseInSensitive);
+
+    SwapTibs();
+    return Res;
 }
 
 VOID WINAPI Dirtbox::RtlInitAnsiString(
     PANSI_STRING DestinationString, PSTR SourceString
 )
 {
+    SwapTibs();
+
+    DebugPrint("RtlInitAnsiString: 0x%08x 0x%08x", DestinationString, SourceString);
+
+    ::RtlInitAnsiString(DestinationString, SourceString);
+
+    SwapTibs();
 }
 
 VOID WINAPI Dirtbox::RtlInitializeCriticalSection(
     PXBOX_CRITICAL_SECTION CriticalSection
 )
 {
+    SwapTibs();
+
+    DebugPrint("RtlInitializeCriticalSection: 0x%08x", CriticalSection);
+    // Not sure if it can work this way, but oh well.
+    ::RtlInitializeCriticalSection(&CriticalSections[CriticalSection]);
+
+    SwapTibs();
 }
 
 VOID WINAPI Dirtbox::RtlLeaveCriticalSection(
     PXBOX_CRITICAL_SECTION CriticalSection
 )
 {
+    SwapTibs();
+
+    DebugPrint("RtlLeaveCriticalSection: 0x%08x", CriticalSection);
+    // Not sure if it can work this way, but oh well.
+    ::RtlLeaveCriticalSection(&CriticalSections[CriticalSection]);
+
+    SwapTibs();
 }
 
-LONG WINAPI Dirtbox::RtlNtStatusToDosError(
+DWORD WINAPI Dirtbox::RtlNtStatusToDosError(
     NTSTATUS Status
 )
 {
-    return STATUS_SUCCESS;
+    SwapTibs();
+
+    DebugPrint("RtlNtStatusToDosError: 0x%x", Status);
+
+    DWORD Res = ::RtlNtStatusToDosError(Status);
+
+    SwapTibs();
+    return Res;
 }
 
 VOID WINAPI Dirtbox::RtlRaiseException(
     PEXCEPTION_RECORD ExceptionRecord
 )
 {
+    SwapTibs();
+
+
+    DebugPrint("RtlRaiseException: 0x%08x", ExceptionRecord);
+
+    // WARNING! WE MAY NEED TO COPY STUFF FROM XBOX TIB INTO NT TIB!
+    ::RtlRaiseException(ExceptionRecord);
+
+    SwapTibs();
 }
 
 VOID WINAPI Dirtbox::RtlUnwind(
     PVOID TargetFrame, PVOID TargetIp, PEXCEPTION_RECORD ExceptionRecord, PVOID ReturnValue
 )
 {
+    SwapTibs();
+
+    DebugPrint("RtlUnwind: 0x%08x 0x%08x 0x%08x 0x%08x", 
+        TargetFrame, TargetIp, ExceptionRecord, ReturnValue);
+
+    // WARNING! WE MAY NEED TO COPY STUFF FROM XBOX TIB INTO NT TIB!
+    ::RtlUnwind(TargetFrame, TargetIp, ExceptionRecord, ReturnValue);
+
+    SwapTibs();
 }
 
 NTSTATUS WINAPI Dirtbox::XeLoadSection(
     PXBEIMAGE_SECTION Section
 )
 {
-    return STATUS_SUCCESS;
+    SwapTibs();
+
+    DebugPrint("XeLoadSection: 0x%08x", Section);
+
+    // don't need to load on-demand sections yet
+
+    SwapTibs();
+    return 0;
 }
 
 NTSTATUS WINAPI Dirtbox::XeUnloadSection(
     PXBEIMAGE_SECTION Section
 )
 {
-    return STATUS_SUCCESS;
+    SwapTibs();
+
+    DebugPrint("XeUnloadSection: 0x%08x", Section);
+
+    // don't need to load on-demand sections yet
+
+    SwapTibs();
+    return 0;
 }
 
 VOID WINAPI Dirtbox::XcSHAInit(
     PCHAR SHAContext
 )
 {
+    SwapTibs();
+
+    DebugPrint("XcSHAInit: 0x%08x", SHAContext);
+
+    // don't nead crypto yet
+
+    SwapTibs();
 }
 
 VOID WINAPI Dirtbox::XcSHAUpdate(
     PCHAR SHAContext, PCHAR Input, DWORD InputLength
 )
 {
+    SwapTibs();
+
+    DebugPrint("XcSHAUpdate: 0x%08x 0x%08x 0x%x", SHAContext, Input, InputLength);
+
+    // don't nead crypto yet
+
+    SwapTibs();
 }
 
 VOID WINAPI Dirtbox::XcSHAFinal(
     PCHAR SHAContext, PCHAR Digest
 )
 {
+    SwapTibs();
+
+    DebugPrint("XcSHAFinal: 0x%08x 0x%08x", SHAContext, Digest);
+
+    // don't nead crypto yet
+
+    SwapTibs();
 }
 
 VOID WINAPI Dirtbox::XcHMAC(
@@ -1127,8 +1295,21 @@ VOID WINAPI Dirtbox::XcHMAC(
     PCHAR Data2, DWORD DwordData2, PCHAR Digest
 )
 {
+    SwapTibs();
+
+    DebugPrint("XcHMAC: 0x%08x 0x%x 0x%08x 0x%x 0x%08x 0x%x 0x%08x", 
+        KeyMaterial, DwordKeyMaterial, Data, DwordData, Data2, DwordData2, Digest);
+
+    // don't nead crypto yet
+
+    SwapTibs();
 }
 
 VOID WINAPI Dirtbox::HalInitiateShutdown()
 {
+    SwapTibs();
+
+    DebugPrint("HalInitiateShutdown");
+
+    SwapTibs();
 }

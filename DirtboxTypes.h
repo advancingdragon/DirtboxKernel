@@ -105,6 +105,22 @@ struct DISPATCHER_HEADER // 0x10
     LIST_ENTRY WaitListHead; // +0x8(0x8)
 };
 
+typedef struct XBOX_CRITICAL_SECTION // 0x1C
+{
+    DISPATCHER_HEADER Synchronization; // +0x0(0x10)
+    LONG LockCount; // +0x10(0x4)
+    LONG RecursionCount; // +0x14(0x4)
+    PVOID OwningThread; // +0x18(0x4)
+} *PXBOX_CRITICAL_SECTION;
+
+typedef struct FILE_FS_SIZE_INFORMATION // 0x18
+{
+  LARGE_INTEGER TotalAllocationUnits; // +0x0(0x8)
+  LARGE_INTEGER AvailableAllocationUnits; // +0x8(0x8)
+  ULONG         SectorsPerAllocationUnit; // +0x10(0x4)
+  ULONG         BytesPerSector; // +0x14(0x4)
+} *PFILE_FS_SIZE_INFORMATION;
+
 struct XBOX_FLOATING_SAVE_AREA // 0x204
 {
     WORD ControlWord; // +0x0(0x2)
@@ -135,6 +151,16 @@ typedef struct HAL_SHUTDOWN_REGISTRATION // 0x10
     DWORD Priority; // +0x4(0x4)
     LIST_ENTRY ListEntry; // +0x8(0x8)
 } *PHAL_SHUTDOWN_REGISTRATION;
+
+typedef struct IO_STATUS_BLOCK // 0x8
+{
+    union
+    {
+        NTSTATUS Status; // +0x0(0x4)
+        PVOID Pointer; // +0x0(0x4)
+    };
+    DWORD Information; // +0x4(0x4)
+} *PIO_STATUS_BLOCK;
 
 struct KAPC // 0x28
 {
@@ -321,24 +347,6 @@ typedef struct XBOX_OBJECT_ATTRIBUTES // 0xC
         DWORD Attributes; // +0x8(0x4)
 } *PXBOX_OBJECT_ATTRIBUTES;
 
-typedef struct IO_STATUS_BLOCK // 0x8
-{
-    union
-    {
-        NTSTATUS Status; // +0x0(0x4)
-        PVOID Pointer; // +0x0(0x4)
-    };
-    DWORD Information; // +0x4(0x4)
-} *PIO_STATUS_BLOCK;
-
-typedef struct XBOX_CRITICAL_SECTION // 0x1C
-{
-    DISPATCHER_HEADER Synchronization; // +0x0(0x10)
-    LONG LockCount; // +0x10(0x4)
-    LONG RecursionCount; // +0x14(0x4)
-    PVOID OwningThread; // +0x18(0x4)
-} *PXBOX_CRITICAL_SECTION;
-
 struct XBOX_HARDWARE_INFO // 0x8
 {
     DWORD Flags; // +0x0(0x4)
@@ -347,23 +355,32 @@ struct XBOX_HARDWARE_INFO // 0x8
     BYTE reserved[2]; // +0x6(0x2)
 };
 
-typedef struct XBEIMAGE_SECTION 
+struct XBOX_KRNL_VERSION // 0x8
 {
-    DWORD Flags;
-    DWORD VirtualAddr;
-    DWORD VirtualSize;
-    DWORD RawAddr;
-    DWORD SizeOfRaw;
-    DWORD SectionNameAddr;
-    DWORD SectionRefCount;
-    DWORD HeadSharedRefCountAddr;
-    DWORD TailSharedRefCountAddr;
-    BYTE SectionDigest[20];
+    WORD Major; // +0x0(0x2)
+    WORD Minor; // +0x2(0x2)
+    WORD Build; // +0x4(0x2)
+    WORD Qfe; // +0x6(0x2)
+};
+
+typedef struct XBEIMAGE_SECTION // 0x38
+{
+    DWORD SectionFlags; // +0x0(0x4)
+    DWORD VirtualAddress; // +0x4(0x4)
+    DWORD VirtualSize; // +0x8(0x4)
+    DWORD PointerToRawData; // +0xc(0x4)
+    DWORD SizeOfRawData; // +0x10(0x4)
+    PBYTE SectionName; // +0x14(0x4)
+    DWORD SectionReferenceCount; // +0x18(0x4)
+    PWORD HeadSharedPageReferenceCount; // +0x1c(0x4)
+    PWORD TailSharedPageReferenceCount; // +0x20(0x4)
+    BYTE SectionDigest[0x14]; // +0x24(0x14)
 } *PXBEIMAGE_SECTION;
 
-// Windows NT-only structs
+// Windows NT structs
 
-typedef struct OBJECT_ATTRIBUTES {
+typedef struct OBJECT_ATTRIBUTES
+{
     DWORD Length;
     HANDLE RootDirectory;
     PUNICODE_STRING ObjectName;

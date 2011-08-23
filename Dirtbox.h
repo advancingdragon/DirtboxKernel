@@ -7,12 +7,14 @@
 #define EXPORT __declspec(dllexport)
 #define NAKED __declspec(naked)
 
-#define ENTRY_POINT_ADDR            0x00010128
-#define KERNEL_IMAGE_THUNK_ADDR     0x00010158
-#define DEBUG_KEY                   0xEFB1F152
+#define XBE_ENTRY_POINT       (*(PDWORD)0x00010128)
+#define XBE_ENTRY_POINT_KEY   0x94859D4B
+#define XBE_KERNEL_THUNK      (*(PDWORD)0x00010158)
+#define XBE_KERNEL_THUNK_KEY  0xEFB1F152
 
-#define TRIGGER_ADDRESS     0x80000000
-#define REGISTER_BASE       0x84000000
+#define TRIGGER_ADDRESS       0x80000000
+#define DUMMY_KERNEL_ADDRESS  0x80010000
+#define REGISTER_BASE         0x84000000
 
 #define NV_PFIFO_RAMHT          0x002210
 #define NV_PFIFO_RAMFC          0x002214
@@ -28,33 +30,37 @@
 #define PADDING_SIZE  0x10000
 #define GPU_INST_SIZE 0x5000
 
-#define REG32(offset) (*(DWORD *)(REGISTER_BASE + (offset)))
+#define REG32(offset) (*(PDWORD)(REGISTER_BASE + (offset)))
 #define GPU_INST_ADDRESS(offset) (REGISTER_BASE + NV_GPU_INST + PADDING_SIZE + (offset))
 
+#define NT_SUCCESS(Status)           ((NTSTATUS)(Status) >= 0)
 #define STATUS_SUCCESS               ((NTSTATUS)0x00000000L)
-#define STATUS_OBJECT_NAME_COLLISION ((NTSTATUS)0xC0000035L)
-#define STATUS_NOT_A_DIRECTORY       ((NTSTATUS)0xC0000103L)
+#define STATUS_UNSUCCESSFUL          ((NTSTATUS)0xC0000001L)
+#define STATUS_NOT_IMPLEMENTED       ((NTSTATUS)0xC0000002L)
+#define STATUS_INVALID_PARAMETER     ((NTSTATUS)0xC000000DL)
+#define STATUS_OBJECT_NAME_INVALID   ((NTSTATUS)0xC0000033L)
+#define STATUS_TOO_MANY_THREADS      ((NTSTATUS)0xC0000129L)
 
-#define OB_DOS_DEVICES ((HANDLE) 0xFFFFFFFD)
-
-#define DEBUG_PRINT(str, ...) \
-    do \
-    { \
-        printf(str, __VA_ARGS__); \
-        fflush(stdout); \
-    } while (0)
+// warning, double using macro
+#define VALID_HANDLE(Handle)  ((Handle) != NULL && (Handle) != INVALID_HANDLE_VALUE)
+#define OB_DOS_DEVICES        ((HANDLE) 0xFFFFFFFD)
 
 namespace Dirtbox
 {
-    static inline DWORD MyVirtualAlloc(DWORD Address, DWORD Size)
-    {
-        return (DWORD)VirtualAlloc(
-            (PVOID)Address, Size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE
-        );
-    }
+    // Dirtbox.cpp
+    typedef VOID (*PMAIN_ROUTINE)();
 
-    // DirtboxException.cpp
-    LONG WINAPI ExceptionHandler(PEXCEPTION_POINTERS ExceptionInfo);
+    VOID EXPORT WINAPI Initialize();
+    VOID DebugPrint(PSTR Format, ...);
+    VOID FatalPrint(PSTR Format, ...);
+
+    // DirtboxHacks.cpp
+    extern HANDLE CurrentDirectory;
+    extern ANSI_STRING Partition1;
+
+    VOID InitializeException();
+    VOID InitializeDummyKernel();
+    VOID InitializeDrives();
 
     // DirtboxThreading.cpp
     typedef struct SHIM_CONTEXT
@@ -65,12 +71,10 @@ namespace Dirtbox
         PKSYSTEM_ROUTINE SystemRoutine;
     } *PSHIM_CONTEXT;
 
-    DWORD WINAPI ShimCallback(PVOID Parameter);
     VOID InitializeThreading();
-    WORD AllocateLdtEntry(DWORD Base, DWORD Limit);
-    VOID FreeLdtEntry(WORD Selector);
-    VOID AllocateTib(DWORD TlsDataSize);
-    VOID FreeTib();
+    UINT WINAPI ShimCallback(PVOID ShimCtxPtr);
+    NTSTATUS AllocateTib(DWORD TlsDataSize);
+    NTSTATUS FreeTib();
     static inline VOID SwapTibs()
     {
         __asm
@@ -81,8 +85,7 @@ namespace Dirtbox
     }
 
     // DirtboxGraphics.cpp
-    DWORD WINAPI GraphicsThreadCallback(PVOID Parameter);
-    DWORD InitializeGraphics();
+    VOID InitializeGraphics();
 
     // DirtboxKernel.cpp
     PVOID WINAPI AvGetSavedDataAddress();
@@ -264,13 +267,13 @@ namespace Dirtbox
     VOID WINAPI PsTerminateSystemThread(
         NTSTATUS ExitStatus
     );
-    NTSTATUS WINAPI RtlCompareMemoryUlong(
-        PDWORD Buffer, DWORD Size, DWORD Value
+    SIZE_T WINAPI RtlCompareMemoryUlong(
+        PVOID Source, SIZE_T Length, DWORD Pattern
     );
     NTSTATUS WINAPI RtlEnterCriticalSection(
         PXBOX_CRITICAL_SECTION CriticalSection
     );
-    NTSTATUS WINAPI RtlEqualString(
+    LONG WINAPI RtlEqualString(
         PANSI_STRING String1, PANSI_STRING String2, BOOLEAN CaseInSensitive
     );
     VOID WINAPI RtlInitAnsiString(
@@ -282,7 +285,7 @@ namespace Dirtbox
     VOID WINAPI RtlLeaveCriticalSection(
         PXBOX_CRITICAL_SECTION CriticalSection
     );
-    LONG WINAPI RtlNtStatusToDosError(
+    DWORD WINAPI RtlNtStatusToDosError(
         NTSTATUS Status
     );
     VOID WINAPI RtlRaiseException(
@@ -292,8 +295,8 @@ namespace Dirtbox
         PVOID TargetFrame, PVOID TargetIp, PEXCEPTION_RECORD ExceptionRecord, PVOID ReturnValue
     );
     extern XBOX_HARDWARE_INFO XboxHardwareInfo;
-    extern DWORD XboxHDKey;
-    extern DWORD XboxKrnlVersion;
+    extern PCHAR XboxHDKey;
+    extern XBOX_KRNL_VERSION XboxKrnlVersion;
     extern DWORD XeImageFileName;
     NTSTATUS WINAPI XeLoadSection(
         PXBEIMAGE_SECTION Section
@@ -316,9 +319,6 @@ namespace Dirtbox
     );
     extern DWORD IdexChannelObject;
     VOID WINAPI HalInitiateShutdown();
-
-    // Dirtbox.cpp
-    VOID EXPORT WINAPI Initialize();
 }
 
 #endif
