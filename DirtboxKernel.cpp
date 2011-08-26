@@ -1073,13 +1073,8 @@ NTSTATUS WINAPI Dirtbox::PsCreateSystemThreadEx(
     /*
     Is it better to use _beginthreadex, CreateThread, or NtCreateThread?
     */
-    /*
-    HANDLE Thr = CreateThread(
-        NULL, KernelStackSize, &ShimCallback, ShimContext, Flags, NULL
-    );
-    */
     HANDLE Thr = (HANDLE)_beginthreadex(
-        NULL, KernelStackSize, &ShimCallback, ShimContext, Flags, NULL
+        NULL, KernelStackSize + 0x1000, &ShimCallback, ShimContext, Flags, NULL
     );
     if (!VALID_HANDLE(Thr))
     {

@@ -24,6 +24,7 @@ VOID Dirtbox::InitializeThreading()
     DebugPrint("InitializeThreading: Threading initialized successfully.");
 }
 
+// TODO: Check if expanded stack is big enough to hold THREADING_SHIZ struct.
 UINT __declspec(naked) WINAPI Dirtbox::ShimCallback(PVOID ShimCtxPtr)
 {
     __asm
@@ -175,6 +176,9 @@ NTSTATUS Dirtbox::AllocateTib(PTHREAD_SHIZ ThreadShiz, DWORD TlsDataSize)
     WORD NewFs;
     NTSTATUS Res = AllocateLdtEntry(&NewFs, (DWORD)&ThreadShiz->Kpcr, sizeof(KPCR));
     OldNtTib->ArbitraryUserPointer = (PVOID)NewFs;
+
+    // Restore NT stack base
+    OldNtTib->StackBase = (PVOID)((DWORD)OldNtTib->StackBase + 0x1000);
 
     return Res;
 }
