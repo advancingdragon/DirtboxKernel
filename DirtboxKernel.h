@@ -1,92 +1,10 @@
-#ifndef _DIRTBOX_H_
-#define _DIRTBOX_H_
+#ifndef _DIRTBOX_KERNEL_H_
+#define _DIRTBOX_KERNEL_H_
 
 #include "DirtboxTypes.h"
-#include <stdio.h>
-
-#define EXPORT __declspec(dllexport)
-#define NAKED __declspec(naked)
-
-#define XBE_ENTRY_POINT       (*(PDWORD)0x00010128)
-#define XBE_ENTRY_POINT_KEY   0x94859D4B
-#define XBE_KERNEL_THUNK      (*(PDWORD)0x00010158)
-#define XBE_KERNEL_THUNK_KEY  0xEFB1F152
-
-#define TRIGGER_ADDRESS       0x80000000
-#define DUMMY_KERNEL_ADDRESS  0x80010000
-#define REGISTER_BASE         0x84000000
-
-#define NV_PFIFO_RAMHT          0x002210
-#define NV_PFIFO_RAMFC          0x002214
-#define NV_PFIFO_RUNOUT_STATUS  0x002400
-#define NV_PFIFO_CACHE1_STATUS  0x003214
-#define NV_PFB_WC_CACHE         0x100410
-#define NV_GPU_INST             0x700000
-#define NV_USER                 0x800000
-#define USER_DMA_PUT            0x800040
-#define USER_DMA_GET            0x800044
-#define USER_NV_USER_ADDRESS    0x801C20
-
-#define PADDING_SIZE  0x10000
-#define GPU_INST_SIZE 0x5000
-
-#define REG32(offset) (*(PDWORD)(REGISTER_BASE + (offset)))
-#define GPU_INST_ADDRESS(offset) (REGISTER_BASE + NV_GPU_INST + PADDING_SIZE + (offset))
-
-#define NT_SUCCESS(Status)           ((NTSTATUS)(Status) >= 0)
-#define STATUS_SUCCESS               ((NTSTATUS)0x00000000L)
-#define STATUS_UNSUCCESSFUL          ((NTSTATUS)0xC0000001L)
-#define STATUS_NOT_IMPLEMENTED       ((NTSTATUS)0xC0000002L)
-#define STATUS_INVALID_PARAMETER     ((NTSTATUS)0xC000000DL)
-#define STATUS_OBJECT_NAME_INVALID   ((NTSTATUS)0xC0000033L)
-#define STATUS_TOO_MANY_THREADS      ((NTSTATUS)0xC0000129L)
-
-// warning, double using macro
-#define VALID_HANDLE(Handle)  ((Handle) != NULL && (Handle) != INVALID_HANDLE_VALUE)
-#define OB_DOS_DEVICES        ((HANDLE) 0xFFFFFFFD)
 
 namespace Dirtbox
 {
-    // Dirtbox.cpp
-    typedef VOID (*PMAIN_ROUTINE)();
-
-    VOID EXPORT WINAPI Initialize();
-    VOID DebugPrint(PSTR Format, ...);
-    VOID FatalPrint(PSTR Format, ...);
-
-    // DirtboxHacks.cpp
-    extern HANDLE CurrentDirectory;
-
-    VOID InitializeException();
-    VOID InitializeDummyKernel();
-    VOID InitializeDrives();
-
-    // DirtboxThreading.cpp
-    typedef struct SHIM_CONTEXT
-    {
-        DWORD TlsDataSize;
-        PKSTART_ROUTINE StartRoutine;
-        PVOID StartContext;
-        PKSYSTEM_ROUTINE SystemRoutine;
-    } *PSHIM_CONTEXT;
-
-    VOID InitializeThreading();
-    UINT WINAPI ShimCallback(PVOID ShimCtxPtr);
-    NTSTATUS AllocateTib(DWORD TlsDataSize);
-    NTSTATUS FreeTib();
-    static inline VOID SwapTibs()
-    {
-        __asm
-        {
-            mov ax, fs:[0x14]
-            mov fs, ax
-        }
-    }
-
-    // DirtboxGraphics.cpp
-    VOID InitializeGraphics();
-
-    // DirtboxKernel.cpp
     PVOID WINAPI AvGetSavedDataAddress();
     VOID WINAPI AvSendTVEncoderOption(
         PVOID RegisterBase, DWORD Option, DWORD Param, PDWORD Result

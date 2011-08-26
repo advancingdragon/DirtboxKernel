@@ -1,6 +1,7 @@
 // Dirtbox GPU emulation source
 
-#include "Dirtbox.h"
+#include "DirtboxDefines.h"
+#include "DirtboxEmulator.h"
 #include <process.h>
 
 namespace Dirtbox

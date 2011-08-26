@@ -1,6 +1,7 @@
 // Miscellaneous hacks
 
-#include "Dirtbox.h"
+#include "DirtboxDefines.h"
+#include "DirtboxEmulator.h"
 #include "Native.h"
 
 #define OP_TWO_BYTE 0x0F

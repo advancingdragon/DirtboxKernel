@@ -1,8 +1,7 @@
-
 #ifndef _NATIVE_H_
 #define _NATIVE_H_
 
-#include "Dirtbox.h"
+#include <windows.h>
 
 #ifdef __cplusplus
 extern "C"

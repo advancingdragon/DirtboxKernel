@@ -188,7 +188,7 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath=".\Dirtbox.cpp"
+				RelativePath=".\DirtboxEmulator.cpp"
 				>
 			</File>
 			<File
@@ -214,7 +214,15 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
-				RelativePath=".\Dirtbox.h"
+				RelativePath=".\DirtboxDefines.h"
+				>
+			</File>
+			<File
+				RelativePath=".\DirtboxEmulator.h"
+				>
+			</File>
+			<File
+				RelativePath=".\DirtboxKernel.h"
 				>
 			</File>
 			<File

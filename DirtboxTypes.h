@@ -3,6 +3,12 @@
 
 #include <windows.h>
 
+enum EVENT_TYPE
+{ 
+    NotificationEvent = 0x0, 
+    SynchronizationEvent = 0x1
+};
+
 enum FS_INFORMATION_CLASS
 { 
     FileFsVolumeInformation = 0x1,
@@ -20,6 +26,34 @@ enum KINTERRUPT_MODE
 {
     LevelSensitive = 0,
     Latched = 1
+};
+
+enum KOBJECTS
+{ 
+    EventNotificationObject = 0x0, 
+    EventSynchronizationObject = 0x1, 
+    MutantObject = 0x2, 
+    ProcessObject = 0x3, 
+    QueueObject = 0x4, 
+    SemaphoreObject = 0x5, 
+    ThreadObject = 0x6, 
+    Spare1Object = 0x7, 
+    TimerNotificationObject = 0x8, 
+    TimerSynchronizationObject = 0x9, 
+    Spare2Object = 0xa, 
+    Spare3Object = 0xb, 
+    Spare4Object = 0xc, 
+    Spare5Object = 0xd, 
+    Spare6Object = 0xe, 
+    Spare7Object = 0xf, 
+    Spare8Object = 0x10, 
+    Spare9Object = 0x11, 
+    ApcObject = 0x12, 
+    DpcObject = 0x13, 
+    DeviceQueueObject = 0x14, 
+    EventPairObject = 0x15, 
+    InterruptObject = 0x16, 
+    ProfileObject = 0x17
 };
 
 enum KWAIT_REASON
@@ -117,14 +151,6 @@ struct DISPATCHER_HEADER // 0x10
     LONG SignalState; // +0x4(0x4)
     LIST_ENTRY WaitListHead; // +0x8(0x8)
 };
-
-typedef struct XBOX_CRITICAL_SECTION // 0x1C
-{
-    DISPATCHER_HEADER Synchronization; // +0x0(0x10)
-    LONG LockCount; // +0x10(0x4)
-    LONG RecursionCount; // +0x14(0x4)
-    PVOID OwningThread; // +0x18(0x4)
-} *PXBOX_CRITICAL_SECTION;
 
 typedef struct FILE_FS_SIZE_INFORMATION // 0x18
 {
@@ -352,6 +378,14 @@ typedef struct ETHREAD // 0x140
     LIST_ENTRY IrpList; // +0x134(0x8)
     PVOID DebugData; // +0x13c(0x4)
 } *PETHREAD;
+
+typedef struct XBOX_CRITICAL_SECTION // 0x1C
+{
+    DISPATCHER_HEADER Synchronization; // +0x0(0x10)
+    LONG LockCount; // +0x10(0x4)
+    LONG RecursionCount; // +0x14(0x4)
+    PVOID OwningThread; // +0x18(0x4)
+} *PXBOX_CRITICAL_SECTION;
 
 typedef struct XBOX_OBJECT_ATTRIBUTES // 0xC
 {

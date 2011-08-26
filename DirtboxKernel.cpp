@@ -1,4 +1,8 @@
-#include "Dirtbox.h"
+// Emulated xboxkrnl.exe functions
+
+#include "DirtboxDefines.h"
+#include "DirtboxEmulator.h"
+#include "DirtboxKernel.h"
 #include "Native.h"
 
 #include <process.h>
@@ -360,7 +364,7 @@ VOID WINAPI Dirtbox::KeInitializeDpc(
         Dpc, DeferredRoutine, DeferredContext);
 
     Dpc->DeferredRoutine = DeferredRoutine;
-    Dpc->Type = 19;
+    Dpc->Type = DpcObject;
     Dpc->DeferredContext = DeferredContext;
     Dpc->Inserted = 0;
 
@@ -396,9 +400,9 @@ VOID WINAPI Dirtbox::KeInitializeTimerEx(
     DebugPrint("KeInitializeTimerEx: %i %i 0x%08x", 
         Timer, Type);
 
-    Timer->Header.Type = Type + 8;
+    Timer->Header.Type = TimerNotificationObject + Type;
     Timer->Header.Inserted = 0;
-    Timer->Header.Size = 10;
+    Timer->Header.Size = sizeof(KTIMER)/4;
     Timer->Header.SignalState = 0;
     Timer->Header.WaitListHead.Blink = &Timer->Header.WaitListHead;
     Timer->Header.WaitListHead.Flink = &Timer->Header.WaitListHead;
@@ -1069,6 +1073,11 @@ NTSTATUS WINAPI Dirtbox::PsCreateSystemThreadEx(
     /*
     Is it better to use _beginthreadex, CreateThread, or NtCreateThread?
     */
+    /*
+    HANDLE Thr = CreateThread(
+        NULL, KernelStackSize, &ShimCallback, ShimContext, Flags, NULL
+    );
+    */
     HANDLE Thr = (HANDLE)_beginthreadex(
         NULL, KernelStackSize, &ShimCallback, ShimContext, Flags, NULL
     );
@@ -1094,6 +1103,7 @@ VOID WINAPI Dirtbox::PsTerminateSystemThread(
     
     // like the same thing as in ShimCallback
     FreeTib();
+
     _endthreadex(ExitStatus);
 }
 
@@ -1164,6 +1174,18 @@ VOID WINAPI Dirtbox::RtlInitializeCriticalSection(
     DebugPrint("RtlInitializeCriticalSection: 0x%08x", CriticalSection);
     // Not sure if it can work this way, but oh well.
     ::RtlInitializeCriticalSection(&CriticalSections[CriticalSection]);
+
+    CriticalSection->Synchronization.Type = EventSynchronizationObject;
+    CriticalSection->Synchronization.Size = sizeof(KEVENT)/4;
+    CriticalSection->Synchronization.SignalState = 0;
+    CriticalSection->Synchronization.WaitListHead.Blink = 
+        &CriticalSection->Synchronization.WaitListHead;
+    CriticalSection->Synchronization.WaitListHead.Flink = 
+        &CriticalSection->Synchronization.WaitListHead;
+
+    CriticalSection->LockCount = -1;
+    CriticalSection->RecursionCount = 0;
+    CriticalSection->OwningThread = NULL;
 
     SwapTibs();
 }

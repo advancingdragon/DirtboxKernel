@@ -1,4 +1,9 @@
-#include "Dirtbox.h"
+// Main entry point
+
+#include "DirtboxDefines.h"
+#include "DirtboxEmulator.h"
+#include "DirtboxKernel.h"
+#include <stdio.h>
 
 namespace Dirtbox
 {
@@ -23,8 +28,7 @@ VOID WINAPI Dirtbox::Initialize()
     InitializeDummyKernel();
     InitializeDrives();
     InitializeThreading();
-    if (!NT_SUCCESS(AllocateTib(20)))
-        FatalPrint("Initialize: Failed to allocate initial TIB.");
+    __writefsword(NT_TIB_USER_POINTER, GetFS());
     InitializeGraphics();
 
     // replace kernel import ordinals with pointer to our functions
@@ -283,7 +287,7 @@ VOID WINAPI Dirtbox::Initialize()
 // The reason DebugPrint and FatalPrint are in assembly and declared NAKED
 // is there is no other way to pass variadic parameters to printf
 // NOTE: Do we need to call fflush(stdout) here?
-VOID NAKED Dirtbox::DebugPrint(PSTR Format, ...)
+VOID __declspec(naked) Dirtbox::DebugPrint(PSTR Format, ...)
 {
     __asm
     {
@@ -308,7 +312,7 @@ VOID NAKED Dirtbox::DebugPrint(PSTR Format, ...)
     }
 }
 
-VOID NAKED Dirtbox::FatalPrint(PSTR Format, ...)
+VOID __declspec(naked) Dirtbox::FatalPrint(PSTR Format, ...)
 {
     __asm
     {

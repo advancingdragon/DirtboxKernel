@@ -1,9 +1,8 @@
-#include "Dirtbox.h"
-#include "Native.h"
+// Threading - thread local storage and thread information block
 
-#define MAXIMUM_XBOX_THREADS 15 
-#define NT_TIB_SELF 0x18
-#define KPCR_SELFPCR 0x1C
+#include "DirtboxDefines.h"
+#include "DirtboxEmulator.h"
+#include "Native.h"
 
 namespace Dirtbox
 {
@@ -12,6 +11,7 @@ namespace Dirtbox
 
     NTSTATUS AllocateLdtEntry(PWORD Selector, DWORD Base, DWORD LimitSize);
     NTSTATUS FreeLdtEntry(WORD Selector);
+    NTSTATUS AllocateTib(PTHREAD_SHIZ ThreadShiz, DWORD TlsDataSize);
 }
 
 VOID Dirtbox::InitializeThreading()
@@ -24,22 +24,56 @@ VOID Dirtbox::InitializeThreading()
     DebugPrint("InitializeThreading: Threading initialized successfully.");
 }
 
-UINT WINAPI Dirtbox::ShimCallback(PVOID ShimCtxPtr)
+UINT __declspec(naked) WINAPI Dirtbox::ShimCallback(PVOID ShimCtxPtr)
 {
-    SHIM_CONTEXT ShimContext = *(PSHIM_CONTEXT)ShimCtxPtr;
-    free(ShimCtxPtr);
-    AllocateTib(ShimContext.TlsDataSize);
+    __asm
+    {
+        // don't need to save registers, since we'll never
+        // return from this function
 
-    SwapTibs();
+        // copy contents of ShimContext to nonvolative registers
+        mov edx, dword ptr [esp+4]
+        mov ebx, dword ptr [edx]SHIM_CONTEXT.TlsDataSize
+        mov ebp, dword ptr [edx]SHIM_CONTEXT.SystemRoutine
+        mov esi, dword ptr [edx]SHIM_CONTEXT.StartRoutine
+        mov edi, dword ptr [edx]SHIM_CONTEXT.StartContext
 
-    ShimContext.SystemRoutine(
-        ShimContext.StartRoutine, ShimContext.StartContext
-    );
+        // deallocate SHIM_CONTEXT
+        push edx
+        call dword ptr [free]
+        add esp, 4
 
-    SwapTibs();
+        // add an additional 4K to the stack
+        sub dword ptr fs:[NT_TIB_STACK_BASE], 0x1000
+        mov esp, dword ptr fs:[NT_TIB_STACK_BASE]
+        // allocate TLS
+        sub esp, ebx
 
-    FreeTib();
-    return 0;
+        // AllocateTib(TlsDataSize)
+        push ebx
+        push dword ptr fs:[NT_TIB_STACK_BASE]
+        call Dirtbox::AllocateTib
+        add esp, 4
+
+        // SwapTibs()
+        mov ax, word ptr fs:[NT_TIB_USER_POINTER]
+        mov fs, ax
+
+        // SystemRoutine(StartRoutine, StartContext)
+        push edi
+        push esi
+        call ebp
+
+        int 3
+    }
+}
+
+WORD Dirtbox::GetFS()
+{
+    __asm
+    {
+        mov ax, fs
+    }
 }
 
 NTSTATUS Dirtbox::AllocateLdtEntry(PWORD Selector, DWORD Base, DWORD LimitSize)
@@ -115,69 +149,31 @@ NTSTATUS Dirtbox::FreeLdtEntry(WORD Selector)
     return STATUS_SUCCESS;
 }
 
-NTSTATUS Dirtbox::AllocateTib(DWORD TlsDataSize)
+NTSTATUS Dirtbox::AllocateTib(PTHREAD_SHIZ ThreadShiz, DWORD TlsDataSize)
 {
-    // Initialize ETHREAD structure and allocate TLS
-    if (TlsDataSize == 0)
-    {
-        DebugPrint("AllocateTib: TLS must be bigger than zero.");
-        return STATUS_INVALID_PARAMETER;
-    }
-    PVOID Tls = malloc(TlsDataSize);
-    if (Tls == NULL)
-    {
-        DebugPrint("AllocateTib: Could not allocate memory for TLS data.");
-        return STATUS_UNSUCCESSFUL;
-    }
-    memset(Tls, 0, TlsDataSize);
+    memset(ThreadShiz, 0, sizeof(THREAD_SHIZ));
 
-    PETHREAD Ethread = (PETHREAD)malloc(sizeof(ETHREAD));
-    if (Ethread == NULL)
-    {
-        free(Tls);
-        DebugPrint("AllocateTib: Could not allocate memory for ETHREAD.");
-        return STATUS_UNSUCCESSFUL;
-    }
-    memset(Ethread, 0, sizeof(ETHREAD));
-    Ethread->Tcb.TlsData = Tls;
-    Ethread->UniqueThread = (PVOID)GetCurrentThreadId();
-
-    // Initialize Xbox Thread Information Block
-    PKPCR Kpcr = (PKPCR)malloc(sizeof(KPCR));
-    if (Kpcr == NULL)
-    {
-        free(Ethread);
-        free(Tls);
-        DebugPrint("AllocateTib: Could not allocate memory for KPCR.");
-        return STATUS_UNSUCCESSFUL;
-    }
-    memset(Kpcr, 0, sizeof(KPCR));
-
+    PNT_TIB OldNtTib = (PNT_TIB)__readfsdword(NT_TIB_SELF);
     // Initialize subsystem independent part
-    PNT_TIB OldNtTib;
-    WORD OldFs;
-    __asm
-    {
-        mov eax, fs:[NT_TIB_SELF]
-        mov OldNtTib, eax
-        mov dx, fs
-        mov OldFs, dx
-    }
-    Kpcr->NtTib = *OldNtTib;
-    Kpcr->NtTib.ArbitraryUserPointer = (PVOID)OldFs;
-    Kpcr->NtTib.Self = &Kpcr->NtTib;
-    // Xbox requires the stack base to point to the end of TLS data
-    Kpcr->NtTib.StackBase = (PVOID)((DWORD)Tls + TlsDataSize);
+    ThreadShiz->Kpcr.NtTib.ExceptionList = OldNtTib->ExceptionList;
+    ThreadShiz->Kpcr.NtTib.StackBase = OldNtTib->StackBase;
+    ThreadShiz->Kpcr.NtTib.StackLimit = OldNtTib->StackLimit;
+    ThreadShiz->Kpcr.NtTib.ArbitraryUserPointer = (PVOID)GetFS();
+    ThreadShiz->Kpcr.NtTib.Self = &ThreadShiz->Kpcr.NtTib;
 
     // Initialize Xbox subsystem part
-    Kpcr->SelfPcr = Kpcr;
-    Kpcr->Prcb = &Kpcr->PrcbData;
-    Kpcr->Irql = 0;
-    Kpcr->Prcb->CurrentThread = (PKTHREAD)Ethread;
+    ThreadShiz->Kpcr.SelfPcr = &ThreadShiz->Kpcr;
+    ThreadShiz->Kpcr.Prcb = &ThreadShiz->Kpcr.PrcbData;
+    ThreadShiz->Kpcr.Irql = 0;
+    ThreadShiz->Kpcr.Prcb->CurrentThread = (PKTHREAD)&ThreadShiz->Ethread;
+
+    // Initialize Ethread structure
+    ThreadShiz->Ethread.Tcb.TlsData = (PVOID)((DWORD)OldNtTib->StackBase - TlsDataSize);
+    ThreadShiz->Ethread.UniqueThread = (PVOID)GetCurrentThreadId();
 
     // Allocate LDT entry for new TIB and store selector in old TIB
     WORD NewFs;
-    NTSTATUS Res = AllocateLdtEntry(&NewFs, (DWORD)Kpcr, sizeof(KPCR));
+    NTSTATUS Res = AllocateLdtEntry(&NewFs, (DWORD)&ThreadShiz->Kpcr, sizeof(KPCR));
     OldNtTib->ArbitraryUserPointer = (PVOID)NewFs;
 
     return Res;
@@ -186,23 +182,6 @@ NTSTATUS Dirtbox::AllocateTib(DWORD TlsDataSize)
 // Assumes that we are in Windows TIB
 NTSTATUS Dirtbox::FreeTib()
 {
-    PKPCR Kpcr;
-    WORD Selector;
-
-    SwapTibs();
-    __asm
-    {
-        mov eax, fs:[KPCR_SELFPCR]
-        mov Kpcr, eax
-        mov ax, fs
-        mov Selector, ax
-    }
-    SwapTibs();
-
-    free(Kpcr->Prcb->CurrentThread->TlsData);
-    free(Kpcr->Prcb->CurrentThread);
-    free(Kpcr);
-    NTSTATUS Res = FreeLdtEntry(Selector);
-
-    return Res;
+    WORD Selector = __readfsword(NT_TIB_USER_POINTER);
+    return FreeLdtEntry(Selector);
 }
