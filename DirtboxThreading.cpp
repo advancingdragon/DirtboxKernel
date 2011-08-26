@@ -3,6 +3,7 @@
 #include "DirtboxDefines.h"
 #include "DirtboxEmulator.h"
 #include "Native.h"
+#include <malloc.h>
 
 namespace Dirtbox
 {
@@ -11,7 +12,6 @@ namespace Dirtbox
 
     NTSTATUS AllocateLdtEntry(PWORD Selector, DWORD Base, DWORD LimitSize);
     NTSTATUS FreeLdtEntry(WORD Selector);
-    NTSTATUS AllocateTib(PTHREAD_SHIZ ThreadShiz, DWORD TlsDataSize);
 }
 
 VOID Dirtbox::InitializeThreading()
@@ -24,57 +24,60 @@ VOID Dirtbox::InitializeThreading()
     DebugPrint("InitializeThreading: Threading initialized successfully.");
 }
 
-// TODO: Check if expanded stack is big enough to hold THREADING_SHIZ struct.
-UINT __declspec(naked) WINAPI Dirtbox::ShimCallback(PVOID ShimCtxPtr)
-{
-    __asm
-    {
-        // don't need to save registers, since we'll never
-        // return from this function
-
-        // copy contents of ShimContext to nonvolative registers
-        mov edx, dword ptr [esp+4]
-        mov ebx, dword ptr [edx]SHIM_CONTEXT.TlsDataSize
-        mov ebp, dword ptr [edx]SHIM_CONTEXT.SystemRoutine
-        mov esi, dword ptr [edx]SHIM_CONTEXT.StartRoutine
-        mov edi, dword ptr [edx]SHIM_CONTEXT.StartContext
-
-        // deallocate SHIM_CONTEXT
-        push edx
-        call dword ptr [free]
-        add esp, 4
-
-        // add an additional 4K to the stack
-        sub dword ptr fs:[NT_TIB_STACK_BASE], 0x1000
-        mov esp, dword ptr fs:[NT_TIB_STACK_BASE]
-        // allocate TLS
-        sub esp, ebx
-
-        // AllocateTib(TlsDataSize)
-        push ebx
-        push dword ptr fs:[NT_TIB_STACK_BASE]
-        call Dirtbox::AllocateTib
-        add esp, 8
-
-        // SwapTibs()
-        mov ax, word ptr fs:[NT_TIB_USER_POINTER]
-        mov fs, ax
-
-        // SystemRoutine(StartRoutine, StartContext)
-        push edi
-        push esi
-        call ebp
-
-        int 3
-    }
-}
-
 WORD Dirtbox::GetFS()
 {
     __asm
     {
         mov ax, fs
     }
+}
+
+// The million dollar question here is: is NT_TIB.StackBase required 
+// to be aligned?
+UINT WINAPI Dirtbox::ShimCallback(PVOID ShimContextPtr)
+{
+    SHIM_CONTEXT ShimContext = *(PSHIM_CONTEXT)ShimContextPtr;
+    free(ShimContextPtr);
+
+    PNT_TIB OldNtTib = (PNT_TIB)__readfsdword(NT_TIB_SELF);
+    PBYTE Tls;
+    ETHREAD Ethread;
+    KPCR Kpcr;
+
+    Tls = (PBYTE)_alloca(ShimContext.TlsDataSize);
+    memset(&Ethread, 0, sizeof(ETHREAD));
+    memset(&Kpcr, 0, sizeof(KPCR));
+
+    // Initialize Ethread structure
+    Ethread.Tcb.TlsData = Tls;
+    Ethread.UniqueThread = (PVOID)GetCurrentThreadId();
+
+    // Initialize subsystem independent part
+    Kpcr.NtTib.ExceptionList = OldNtTib->ExceptionList;
+    // Xbox XAPI assumes that the thread-local storage is located 
+    // at the stack base. (see beginning of function)
+    Kpcr.NtTib.StackBase = &Tls[ShimContext.TlsDataSize];
+    Kpcr.NtTib.StackLimit = OldNtTib->StackLimit;
+    Kpcr.NtTib.ArbitraryUserPointer = (PVOID)GetFS();
+    Kpcr.NtTib.Self = &Kpcr.NtTib;
+
+    // Initialize Xbox subsystem part
+    Kpcr.SelfPcr = &Kpcr;
+    Kpcr.Prcb = &Kpcr.PrcbData;
+    Kpcr.Irql = 0;
+    Kpcr.Prcb->CurrentThread = (PKTHREAD)&Ethread;
+ 
+    // Allocate LDT entry for new TIB and store selector in old TIB
+    AllocateLdtEntry(
+        (PWORD)&OldNtTib->ArbitraryUserPointer, (DWORD)&Kpcr, sizeof(KPCR)
+    );
+
+    SwapTibs();
+
+    ShimContext.SystemRoutine(ShimContext.StartRoutine, ShimContext.StartContext);
+
+    FatalPrint("ShimCallback: Should never get here.");
+    return 0;
 }
 
 NTSTATUS Dirtbox::AllocateLdtEntry(PWORD Selector, DWORD Base, DWORD LimitSize)
@@ -148,39 +151,6 @@ NTSTATUS Dirtbox::FreeLdtEntry(WORD Selector)
     LeaveCriticalSection(&ThreadingLock);
 
     return STATUS_SUCCESS;
-}
-
-NTSTATUS Dirtbox::AllocateTib(PTHREAD_SHIZ ThreadShiz, DWORD TlsDataSize)
-{
-    memset(ThreadShiz, 0, sizeof(THREAD_SHIZ));
-
-    PNT_TIB OldNtTib = (PNT_TIB)__readfsdword(NT_TIB_SELF);
-    // Initialize subsystem independent part
-    ThreadShiz->Kpcr.NtTib.ExceptionList = OldNtTib->ExceptionList;
-    ThreadShiz->Kpcr.NtTib.StackBase = OldNtTib->StackBase;
-    ThreadShiz->Kpcr.NtTib.StackLimit = OldNtTib->StackLimit;
-    ThreadShiz->Kpcr.NtTib.ArbitraryUserPointer = (PVOID)GetFS();
-    ThreadShiz->Kpcr.NtTib.Self = &ThreadShiz->Kpcr.NtTib;
-
-    // Initialize Xbox subsystem part
-    ThreadShiz->Kpcr.SelfPcr = &ThreadShiz->Kpcr;
-    ThreadShiz->Kpcr.Prcb = &ThreadShiz->Kpcr.PrcbData;
-    ThreadShiz->Kpcr.Irql = 0;
-    ThreadShiz->Kpcr.Prcb->CurrentThread = (PKTHREAD)&ThreadShiz->Ethread;
-
-    // Initialize Ethread structure
-    ThreadShiz->Ethread.Tcb.TlsData = (PVOID)((DWORD)OldNtTib->StackBase - TlsDataSize);
-    ThreadShiz->Ethread.UniqueThread = (PVOID)GetCurrentThreadId();
-
-    // Allocate LDT entry for new TIB and store selector in old TIB
-    WORD NewFs;
-    NTSTATUS Res = AllocateLdtEntry(&NewFs, (DWORD)&ThreadShiz->Kpcr, sizeof(KPCR));
-    OldNtTib->ArbitraryUserPointer = (PVOID)NewFs;
-
-    // Restore NT stack base
-    OldNtTib->StackBase = (PVOID)((DWORD)OldNtTib->StackBase + 0x1000);
-
-    return Res;
 }
 
 // Assumes that we are in Windows TIB

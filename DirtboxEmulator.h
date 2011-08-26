@@ -28,16 +28,9 @@ namespace Dirtbox
         PVOID StartContext;
     } *PSHIM_CONTEXT;
 
-    typedef struct THREAD_SHIZ
-    {
-        FX_SAVE_AREA FxSaveArea;
-        KPCR Kpcr;
-        ETHREAD Ethread;
-    } *PTHREAD_SHIZ;
-
     VOID InitializeThreading();
-    UINT WINAPI ShimCallback(PVOID ShimCtxPtr);
     WORD GetFS();
+    UINT WINAPI ShimCallback(PVOID ShimCtxPtr);
     NTSTATUS FreeTib();
     static inline VOID SwapTibs()
     {
