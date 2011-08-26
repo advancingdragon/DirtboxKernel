@@ -54,7 +54,7 @@ UINT __declspec(naked) WINAPI Dirtbox::ShimCallback(PVOID ShimCtxPtr)
         push ebx
         push dword ptr fs:[NT_TIB_STACK_BASE]
         call Dirtbox::AllocateTib
-        add esp, 4
+        add esp, 8
 
         // SwapTibs()
         mov ax, word ptr fs:[NT_TIB_USER_POINTER]
