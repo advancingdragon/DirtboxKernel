@@ -53,11 +53,29 @@ VOID WINAPI Dirtbox::Initialize()
         case 8:
             KernelImageThunks[i] = (DWORD)&DbgPrint;
             break;
+        case 15:
+            KernelImageThunks[i] = (DWORD)&ExAllocatePoolWithTag;
+            break;
+        case 16:
+            KernelImageThunks[i] = (DWORD)&ExEventObjectType;
+            break;
+        case 17:
+            KernelImageThunks[i] = (DWORD)&ExFreePool;
+            break;
+        case 23:
+            KernelImageThunks[i] = (DWORD)&ExQueryPoolBlockSize;
+            break;
         case 24:
             KernelImageThunks[i] = (DWORD)&ExQueryNonVolatileSetting;
             break;
         case 40:
             KernelImageThunks[i] = (DWORD)&HalDiskCachePartitionCount;
+            break;
+        case 41:
+            KernelImageThunks[i] = (DWORD)&HalDiskModelNumber;
+            break;
+        case 42:
+            KernelImageThunks[i] = (DWORD)&HalDiskSerialNumber;
             break;
         case 44:
             KernelImageThunks[i] = (DWORD)&HalGetInterruptVector;
@@ -71,11 +89,41 @@ VOID WINAPI Dirtbox::Initialize()
         case 49:
             KernelImageThunks[i] = (DWORD)&HalReturnToFirmware;
             break;
+        case 62:
+            KernelImageThunks[i] = (DWORD)&IoBuildSynchronousFsdRequest;
+            break;
+        case 65:
+            KernelImageThunks[i] = (DWORD)&IoCreateDevice;
+            break;
         case 67:
             KernelImageThunks[i] = (DWORD)&IoCreateSymbolicLink;
             break;
         case 69:
             KernelImageThunks[i] = (DWORD)&IoDeleteSymbolicLink;
+            break;
+        case 71:
+            KernelImageThunks[i] = (DWORD)&IoFileObjectType;
+            break;
+        case 74:
+            KernelImageThunks[i] = (DWORD)&IoInvalidDeviceRequest;
+            break;
+        case 81:
+            KernelImageThunks[i] = (DWORD)&IoStartNextPacket;
+            break;
+        case 83:
+            KernelImageThunks[i] = (DWORD)&IoStartPacket;
+            break;
+        case 84:
+            KernelImageThunks[i] = (DWORD)&IoSynchronousDeviceIoControlRequest;
+            break;
+        case 85:
+            KernelImageThunks[i] = (DWORD)&IoSynchronousFsdRequest;
+            break;
+        case 86:
+            KernelImageThunks[i] = (DWORD)&IofCallDriver;
+            break;
+        case 87:
+            KernelImageThunks[i] = (DWORD)&IofCompleteRequest;
             break;
         case 95:
             KernelImageThunks[i] = (DWORD)&KeBugCheck;
@@ -284,64 +332,32 @@ VOID WINAPI Dirtbox::Initialize()
     FreeTib();
 }
 
-// The reason DebugPrint and FatalPrint are in assembly and declared NAKED
-// is there is no other way to pass variadic parameters to printf
 // NOTE: Do we need to call fflush(stdout) here?
-VOID __declspec(naked) Dirtbox::DebugPrint(PSTR Format, ...)
+VOID Dirtbox::DebugPrint(PSTR Format, ...)
 {
-    __asm
-    {
-        // EnterCriticalSection(&PrintLock)
-        push offset PrintLock
-        call dword ptr [EnterCriticalSection]
+    EnterCriticalSection(&PrintLock);
 
-        // printf(<original parameters to DebugPrint>)
-        pop dword ptr [PrintReturn]
-        call dword ptr [printf]
-        push dword ptr [PrintReturn]
+    va_list Args;
+    va_start(Args, Format);
+    vprintf(Format, Args);
+    va_end(Args);
+    putchar('\n');
 
-        // putchar('\n')
-        push '\n'
-        call dword ptr [putchar]
-        add esp, 4
-
-        // LeaveCriticalSection(&PrintLock)
-        push offset PrintLock
-        call dword ptr [LeaveCriticalSection]
-        ret
-    }
+    LeaveCriticalSection(&PrintLock);
 }
 
-VOID __declspec(naked) Dirtbox::FatalPrint(PSTR Format, ...)
+VOID Dirtbox::FatalPrint(PSTR Format, ...)
 {
-    __asm
-    {
-        // EnterCriticalSection(&PrintLock)
-        push offset PrintLock
-        call dword ptr [EnterCriticalSection]
+    EnterCriticalSection(&PrintLock);
 
-        // printf("Error: ")
-        push offset PrintStringError
-        call dword ptr [printf]
-        add esp, 4
+    printf("Error: ");
+    va_list Args;
+    va_start(Args, Format);
+    vprintf(Format, Args);
+    va_end(Args);
+    putchar('\n');
 
-        // printf(<original parameters to FatalPrint>)
-        pop dword ptr [PrintReturn]
-        call dword ptr [printf]
-        push dword ptr [PrintReturn]
+    LeaveCriticalSection(&PrintLock);
 
-        // putchar('\n')
-        push '\n'
-        call dword ptr [putchar]
-        add esp, 4
-
-        // LeaveCriticalSection(&PrintLock)
-        push offset PrintLock
-        call dword ptr [LeaveCriticalSection]
-
-        // exit(1)
-        push 1
-        call dword ptr [exit]
-        add esp, 4
-    }
+    exit(1);
 }

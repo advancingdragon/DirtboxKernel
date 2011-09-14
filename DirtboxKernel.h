@@ -16,14 +16,29 @@ namespace Dirtbox
     VOID WINAPI AvSetSavedDataAddress(
         PVOID Address
     );
+
     NTSTATUS WINAPI DbgPrint(
         PSTR Output
     );
+
+    PVOID WINAPI ExAllocatePoolWithTag(
+        DWORD NumberOfBytes, DWORD Tag
+    );
+    extern OBJECT_TYPE ExEventObjectType;
+    VOID WINAPI ExFreePool(
+        PVOID Pool
+    );
+    DWORD WINAPI ExQueryPoolBlockSize(
+        PVOID PoolBlock
+    );
     NTSTATUS WINAPI ExQueryNonVolatileSetting(
-        DWORD ValueIndex, DWORD *Type, PBYTE Value, SIZE_T ValueLength,
+        DWORD ValueIndex, PDWORD Type, PBYTE Value, SIZE_T ValueLength,
         PSIZE_T ResultLength
     );
+
     extern DWORD HalDiskCachePartitionCount;
+    extern ANSI_STRING HalDiskModelNumber;
+    extern ANSI_STRING HalDiskSerialNumber;
     DWORD WINAPI HalGetInterruptVector(
         DWORD BusInterruptLevel, PKIRQL Irql
     );
@@ -37,12 +52,48 @@ namespace Dirtbox
     VOID WINAPI HalReturnToFirmware(
         RETURN_FIRMWARE Routine
     );
+
+    PIRP WINAPI IoBuildSynchronousFsdRequest(
+        DWORD MajorFunction, PDEVICE_OBJECT DeviceObject, PVOID Buffer, DWORD Length, 
+        PLARGE_INTEGER StartingOffset, PKEVENT Event, PIO_STATUS_BLOCK IoStatusBlock
+    );
+    NTSTATUS WINAPI IoCreateDevice(
+        PDRIVER_OBJECT DriverObject, DWORD DeviceExtensionSize, PANSI_STRING DeviceName, 
+        DWORD DeviceType, BOOLEAN Exclusive, PDEVICE_OBJECT *DeviceObject
+    );
     NTSTATUS WINAPI IoCreateSymbolicLink(
         PANSI_STRING SymbolicLinkName, PANSI_STRING DeviceName
     );
     NTSTATUS WINAPI IoDeleteSymbolicLink(
         PANSI_STRING SymbolicLinkName
     );
+    extern OBJECT_TYPE IoFileObjectType;
+    NTSTATUS WINAPI IoInvalidDeviceRequest(
+        PDEVICE_OBJECT DeviceObject, PIRP Irp
+    );
+    VOID WINAPI IoStartNextPacket(
+        PDEVICE_OBJECT DeviceObject
+    );
+    VOID WINAPI IoStartPacket(
+        PDEVICE_OBJECT DeviceObject, PIRP Irp, PDWORD Key
+    );
+    NTSTATUS WINAPI IoSynchronousDeviceIoControlRequest(
+        DWORD IoControlCode, PDEVICE_OBJECT DeviceObject, 
+        PVOID InputBuffer, DWORD InputBufferLength, PVOID OutputBuffer, DWORD OutputBufferLength, 
+        PDWORD ReturnedOutputBufferLength, CHAR InternalDeviceIoControl
+    );
+    NTSTATUS WINAPI IoSynchronousFsdRequest(
+        DWORD MajorFunction, PDEVICE_OBJECT DeviceObject, PVOID Buffer, DWORD Length, 
+        PLARGE_INTEGER StartingOffset
+    );
+
+    NTSTATUS __fastcall IofCallDriver(
+        PDEVICE_OBJECT DeviceObject, PIRP Irp
+    );
+    VOID __fastcall IofCompleteRequest(
+        PIRP Irp, CHAR PriorityBoost
+    );
+
     VOID WINAPI KeBugCheck(
         DWORD BugCheckCode
     );
@@ -82,8 +133,11 @@ namespace Dirtbox
         PVOID Object, KWAIT_REASON WaitReason, CHAR WaitMode, CHAR Alertable, 
         PLARGE_INTEGER Timeout
     );
+
     DWORD __fastcall KfLowerIrql(KIRQL NewIrql);
+
     extern DWORD LaunchDataPage;
+
     PVOID WINAPI MmAllocateContiguousMemory(
         DWORD NumberOfBytes
     );
@@ -109,6 +163,7 @@ namespace Dirtbox
     DWORD WINAPI MmSetAddressProtect(
         PVOID BaseAddress, DWORD NumberOfBytes, DWORD NewProtect
     );
+
     NTSTATUS WINAPI NtAllocateVirtualMemory(
         PVOID *BaseAddress, DWORD ZeroBits, PDWORD AllocationSize, DWORD AllocationType,
         DWORD Protect
@@ -176,6 +231,7 @@ namespace Dirtbox
         HANDLE FileHandle, PVOID Event, PVOID ApcRoutine, PVOID ApcContext,
         PIO_STATUS_BLOCK IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
     );
+
     NTSTATUS WINAPI PsCreateSystemThreadEx(
         PHANDLE ThreadHandle, DWORD ThreadExtensionSize, DWORD KernelStackSize, DWORD TlsDataSize, 
         PDWORD ThreadId, PKSTART_ROUTINE StartRoutine, PVOID StartContext, BOOLEAN CreateSuspended, 
@@ -184,6 +240,7 @@ namespace Dirtbox
     VOID WINAPI PsTerminateSystemThread(
         NTSTATUS ExitStatus
     );
+
     SIZE_T WINAPI RtlCompareMemoryUlong(
         PVOID Source, SIZE_T Length, DWORD Pattern
     );
@@ -211,9 +268,11 @@ namespace Dirtbox
     VOID WINAPI RtlUnwind(
         PVOID TargetFrame, PVOID TargetIp, PEXCEPTION_RECORD ExceptionRecord, PVOID ReturnValue
     );
+
     extern XBOX_HARDWARE_INFO XboxHardwareInfo;
     extern PCHAR XboxHDKey;
     extern XBOX_KRNL_VERSION XboxKrnlVersion;
+
     extern DWORD XeImageFileName;
     NTSTATUS WINAPI XeLoadSection(
         PXBEIMAGE_SECTION Section
@@ -221,6 +280,7 @@ namespace Dirtbox
     NTSTATUS WINAPI XeUnloadSection(
         PXBEIMAGE_SECTION Section
     );
+
     VOID WINAPI XcSHAInit(
         PCHAR SHAContext
     );
@@ -234,6 +294,7 @@ namespace Dirtbox
         PCHAR KeyMaterial, DWORD DwordKeyMaterial, PCHAR Data, DWORD DwordData, 
         PCHAR Data2, DWORD DwordData2, PCHAR Digest
     );
+
     extern DWORD IdexChannelObject;
     VOID WINAPI HalInitiateShutdown();
 }

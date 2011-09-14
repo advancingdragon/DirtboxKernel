@@ -111,12 +111,21 @@ typedef BYTE KIRQL, *PKIRQL;
 typedef PVOID PKQUEUE;
 
 // forward declarations for pointers in earlier structs
+typedef struct ANSI_STRING *PANSI_STRING;
 typedef struct KAPC *PKAPC;
 typedef struct KDPC *PKDPC;
 typedef struct KINTERRUPT *PKINTERRUPT;
 typedef struct KPCR *PKPCR;
 typedef struct KTHREAD *PKTHREAD;
 typedef struct KWAIT_BLOCK *PKWAIT_BLOCK;
+typedef struct FILE_OBJECT *PFILE_OBJECT;
+typedef struct IO_COMPLETION_CONTEXT *PIO_COMPLETION_CONTEXT;
+typedef struct IO_STACK_LOCATION *PIO_STACK_LOCATION;
+typedef struct IO_STATUS_BLOCK *PIO_STATUS_BLOCK;
+typedef struct IRP *PIRP;
+typedef struct OBJECT_TYPE *POBJECT_TYPE;
+typedef struct DEVICE_OBJECT *PDEVICE_OBJECT;
+typedef struct DRIVER_OBJECT *PDRIVER_OBJECT;
 
 // function pointers
 typedef VOID (WINAPI *PKDEFERRED_ROUTINE) (PKDPC, PVOID, PVOID, PVOID);
@@ -126,6 +135,26 @@ typedef VOID (WINAPI *PKRUNDOWN_ROUTINE) (PKAPC);
 typedef BOOLEAN (WINAPI *PKSERVICE_ROUTINE) (PKINTERRUPT, PVOID);
 typedef VOID (WINAPI *PKSTART_ROUTINE) (PVOID);
 typedef VOID (WINAPI *PKSYSTEM_ROUTINE) (PKSTART_ROUTINE, PVOID);
+
+typedef VOID (WINAPI *PIO_APC_ROUTINE)(PVOID, PIO_STATUS_BLOCK, DWORD);
+typedef PVOID (WINAPI *OB_ALLOCATE_METHOD)(DWORD, DWORD);
+typedef VOID (WINAPI *OB_CLOSE_METHOD)(PVOID, DWORD);
+typedef VOID (WINAPI *OB_DELETE_METHOD)(PVOID);
+typedef VOID (WINAPI *OB_FREE_METHOD)(PVOID);
+typedef LONG (WINAPI *OB_PARSE_METHOD)(PVOID, POBJECT_TYPE, DWORD, PANSI_STRING, 
+    PANSI_STRING, PVOID, PVOID*);
+
+typedef VOID (WINAPI *PDRIVER_STARTIO) (PDEVICE_OBJECT, PIRP);
+typedef VOID (WINAPI *PDRIVER_DELETEDEVICE) (PDEVICE_OBJECT);
+typedef VOID (WINAPI *PDRIVER_DISMOUNTVOLUME) (PDEVICE_OBJECT);
+typedef VOID (WINAPI *PDRIVER_DISPATCH) (PDEVICE_OBJECT, PIRP);
+
+// unions
+typedef union XBOX_FILE_SEGMENT_ELEMENT // 0x4
+{
+    PVOID Buffer; // +0x0(0x4)
+    DWORD Alignment; // +0x0(0x4)
+} PXBOX_FILE_SEGMENT_ELEMENT;
 
 // structs
 typedef struct ANSI_STRING // 0x8
@@ -156,8 +185,8 @@ typedef struct FILE_FS_SIZE_INFORMATION // 0x18
 {
   LARGE_INTEGER TotalAllocationUnits; // +0x0(0x8)
   LARGE_INTEGER AvailableAllocationUnits; // +0x8(0x8)
-  ULONG         SectorsPerAllocationUnit; // +0x10(0x4)
-  ULONG         BytesPerSector; // +0x14(0x4)
+  DWORD         SectorsPerAllocationUnit; // +0x10(0x4)
+  DWORD         BytesPerSector; // +0x14(0x4)
 } *PFILE_FS_SIZE_INFORMATION;
 
 struct XBOX_FLOATING_SAVE_AREA // 0x204
@@ -191,16 +220,6 @@ typedef struct HAL_SHUTDOWN_REGISTRATION // 0x10
     LIST_ENTRY ListEntry; // +0x8(0x8)
 } *PHAL_SHUTDOWN_REGISTRATION;
 
-typedef struct IO_STATUS_BLOCK // 0x8
-{
-    union
-    {
-        NTSTATUS Status; // +0x0(0x4)
-        PVOID Pointer; // +0x0(0x4)
-    };
-    DWORD Information; // +0x4(0x4)
-} *PIO_STATUS_BLOCK;
-
 struct KAPC // 0x28
 {
     SHORT Type; // +0x0(0x2)
@@ -225,6 +244,21 @@ struct KAPC_STATE // 0x18
     BYTE UserApcPending; // +0x16(0x1)
     BYTE ApcQueueable; // +0x17(0x1)
 };
+
+typedef struct KDEVICE_QUEUE // 0xc
+{
+    SHORT Type; // +0x0(0x2)
+    BYTE Size; // +0x2(0x1)
+    BYTE Busy; // +0x3(0x1)
+    LIST_ENTRY DeviceListHead; // +0x4(0x8)
+} *PKDEVICE_QUEUE;
+
+typedef struct KDEVICE_QUEUE_ENTRY // 0x10
+{
+    LIST_ENTRY DeviceListEntry; // +0x0(0x8)
+    DWORD SortKey; // +0x8(0x4)
+    BYTE Inserted; // +0xc(0x1)
+} PKDEVICE_QUEUE_ENTRY;
 
 struct KDPC // 0x1C
 {
@@ -378,6 +412,128 @@ typedef struct ETHREAD // 0x140
     LIST_ENTRY IrpList; // +0x134(0x8)
     PVOID DebugData; // +0x13c(0x4)
 } *PETHREAD;
+
+struct FILE_OBJECT // 0x48
+{
+    SHORT Type; // +0x0(0x2)
+    BYTE DeletePending; // +0x2(0x1)
+    BYTE ReadAccess; // +0x2(0x1)
+    BYTE WriteAccess; // +0x2(0x1)
+    BYTE DeleteAccess; // +0x2(0x1)
+    BYTE SharedRead; // +0x2(0x1)
+    BYTE SharedWrite; // +0x2(0x1)
+    BYTE SharedDelete; // +0x2(0x1)
+    BYTE Reserved; // +0x2(0x1)
+    BYTE Flags; // +0x3(0x1)
+    PDEVICE_OBJECT DeviceObject; // +0x4(0x4)
+    PVOID FsContext; // +0x8(0x4)
+    PVOID FsContext2; // +0xc(0x4)
+    LONG FinalStatus; // +0x10(0x4)
+    LARGE_INTEGER CurrentByteOffset; // +0x14(0x8)
+    PFILE_OBJECT RelatedFileObject; // +0x1c(0x4)
+    PIO_COMPLETION_CONTEXT CompletionContext; // +0x20(0x4)
+    LONG LockCount; // +0x24(0x4)
+    KEVENT Lock; // +0x28(0x10)
+    KEVENT Event; // +0x38(0x10)
+};
+
+struct IO_STATUS_BLOCK // 0x8
+{
+    union
+    {
+        NTSTATUS Status; // +0x0(0x4)
+        PVOID Pointer; // +0x0(0x4)
+    };
+    DWORD Information; // +0x4(0x4)
+};
+
+struct IO_COMPLETION_CONTEXT // 0x8
+{
+    PVOID Port; // +0x0(0x4)
+    PVOID Key; // +0x4(0x4)
+};
+
+struct IRP // 0x68
+{
+    SHORT Type; // +0x0(0x2)
+    WORD Size; // +0x2(0x2)
+    DWORD Flags; // +0x4(0x4)
+    LIST_ENTRY ThreadListEntry; // +0x8(0x8)
+    IO_STATUS_BLOCK IoStatus; // +0x10(0x8)
+    CHAR StackCount; // +0x18(0x1)
+    CHAR CurrentLocation; // +0x19(0x1)
+    BYTE PendingReturned; // +0x1a(0x1)
+    BYTE Cancel; // +0x1b(0x1)
+    PIO_STATUS_BLOCK UserIosb; // +0x1c(0x4)
+    PKEVENT UserEvent; // +0x20(0x4)
+    union
+    {
+        struct // 0x8
+        {
+            PIO_APC_ROUTINE UserApcRoutine; // +0x0(0x4)
+            PVOID UserApcContext; // +0x4(0x4)
+        } AsynchronousParameters;
+        LARGE_INTEGER AllocationSize;
+    } Overlay; // +0x28(0x8)
+    PVOID UserBuffer; // +0x30(0x4)
+    PXBOX_FILE_SEGMENT_ELEMENT SegmentArray; // +0x34(0x4)
+    DWORD LockedBufferLength; // +0x38(0x4)
+    union
+    {
+        struct // 0x28
+        {
+            KDEVICE_QUEUE_ENTRY DeviceQueueEntry; // +0x0(0x10)
+            PVOID DriverContext[0x5]; // +0x0(0x14)
+            PETHREAD Thread; // +0x14(0x4)
+            LIST_ENTRY ListEntry; // +0x18(0x8)
+            PIO_STACK_LOCATION CurrentStackLocation; // +0x20(0x4)
+            DWORD PacketType; // +0x20(0x4)
+            PFILE_OBJECT OriginalFileObject; // +0x24(0x4)
+        } Overlay; // +0x0(0x28)
+        KAPC Apc; // +0x0(0x28)
+        PVOID CompletionKey; // +0x0(0x4)
+    } Tail; // +0x3c(0x28)
+};
+
+struct OBJECT_TYPE // 0x1c
+{
+    OB_ALLOCATE_METHOD AllocateProcedure; // +0x0(0x4)
+    OB_FREE_METHOD FreeProcedure; // +0x4(0x4)
+    OB_CLOSE_METHOD CloseProcedure; // +0x8(0x4)
+    OB_DELETE_METHOD DeleteProcedure; // +0xc(0x4)
+    OB_PARSE_METHOD ParseProcedure; // +0x10(0x4)
+    PVOID DefaultObject; // +0x14(0x4)
+    DWORD PoolTag; // +0x18(0x4)
+};
+
+struct DEVICE_OBJECT // 0x48
+{
+    SHORT Type; // +0x0(0x2)
+    WORD Size; // +0x2(0x2)
+    LONG ReferenceCount; // +0x4(0x4)
+    PDRIVER_OBJECT DriverObject; // +0x8(0x4)
+    PDEVICE_OBJECT MountedOrSelfDevice; // +0xc(0x4)
+    PIRP CurrentIrp; // +0x10(0x4)
+    DWORD Flags; // +0x14(0x4)
+    PVOID DeviceExtension; // +0x18(0x4)
+    BYTE DeviceType; // +0x1c(0x1)
+    BYTE StartIoFlags; // +0x1d(0x1)
+    CHAR StackSize; // +0x1e(0x1)
+    BYTE DeletePending; // +0x1f(0x1)
+    DWORD SectorSize; // +0x20(0x4)
+    DWORD AlignmentRequirement; // +0x24(0x4)
+    KDEVICE_QUEUE DeviceQueue; // +0x28(0xc)
+    KEVENT DeviceLock; // +0x34(0x10)
+    DWORD StartIoKey; // +0x44(0x4)
+};
+
+struct DRIVER_OBJECT // 0x44
+{
+    PDRIVER_STARTIO DriverStartIo; // +0x0(0x4)
+    PDRIVER_DELETEDEVICE DriverDeleteDevice; // +0x4(0x4)
+    PDRIVER_DISMOUNTVOLUME DriverDismountVolume; // +0x8(0x4)
+    PDRIVER_DISPATCH MajorFunction[0xe]; // +0xc(0x38)
+};
 
 typedef struct XBOX_CRITICAL_SECTION // 0x1C
 {

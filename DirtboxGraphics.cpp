@@ -15,17 +15,20 @@ UINT WINAPI Dirtbox::GraphicsThreadCallback(PVOID Parameter)
     {
         REG32(NV_PFB_WC_CACHE) = 0;
         REG32(USER_DMA_GET) = REG32(USER_DMA_PUT);
-        if (*(DWORD *)TRIGGER_ADDRESS == 0xDEADBEEF)
+        // No longer needed, since BlockOnTime and GpuGetOrNewer are patched.
+        /*
+        if (*(PDWORD)TRIGGER_ADDRESS == 0xDEADBEEF)
         {
-            DWORD *RamHtPtr = (DWORD *)GPU_INST_ADDRESS((REG32(NV_PFIFO_RAMHT) & 0xF0) << 8);
+            PDWORD RamHtPtr = (PDWORD)GPU_INST_ADDRESS((REG32(NV_PFIFO_RAMHT) & 0xF0) << 8);
             // semaphore
-            DWORD *SemaphoreCtx = (DWORD *)GPU_INST_ADDRESS((RamHtPtr[8*2+1] & 0xFFF) << 4);
-            DWORD *GpuTimePtr = (DWORD *)((SemaphoreCtx[2] & 0xFFFFFFFC) | 0x80000000);
+            PDWORD SemaphoreCtx = (PDWORD)GPU_INST_ADDRESS((RamHtPtr[8*2+1] & 0xFFF) << 4);
+            PDWORD GpuTimePtr = (PDWORD)((SemaphoreCtx[2] & 0xFFFFFFFC) | 0x80000000);
             DebugPrint("GraphicsThreadCallback: %08x %08x %08x %i", 
                 RamHtPtr, SemaphoreCtx, GpuTimePtr, *GpuTimePtr);
             *GpuTimePtr = *GpuTimePtr + 1;
         }
-        Sleep(100);
+        */
+        Sleep(40);
     }
     return 0;
 }
@@ -50,7 +53,7 @@ VOID Dirtbox::InitializeGraphics()
     REG32(USER_NV_USER_ADDRESS) = REGISTER_BASE + NV_USER;
 
     HANDLE Thr = (HANDLE)_beginthreadex(NULL, 0, &GraphicsThreadCallback, 0, 0, NULL);
-    if (!VALID_HANDLE(Thr))
+    if (Thr == 0)
         FatalPrint("InitializeGraphics: Could not create graphics thread.");
 
     DebugPrint("InitializeGraphics: Graphics initialized successfully.");

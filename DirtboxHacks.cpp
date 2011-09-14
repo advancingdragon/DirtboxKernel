@@ -104,7 +104,7 @@ VOID Dirtbox::InitializeDrives()
         CurrentPath, GENERIC_READ, FILE_SHARE_READ, NULL, 
         OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL
     );
-    if (!VALID_HANDLE(CurrentDirectory))
+    if (CurrentDirectory == INVALID_HANDLE_VALUE)
         FatalPrint("InitializeDrives: Could not open current directory.");
 
     // Xbox partitions

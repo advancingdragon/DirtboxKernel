@@ -11,9 +11,7 @@
 #define STATUS_OBJECT_NAME_INVALID   ((NTSTATUS)0xC0000033L)
 #define STATUS_TOO_MANY_THREADS      ((NTSTATUS)0xC0000129L)
 
-// warning, double using macro
-#define VALID_HANDLE(Handle)  ((Handle) != NULL && (Handle) != INVALID_HANDLE_VALUE)
-#define OB_DOS_DEVICES        ((HANDLE) 0xFFFFFFFD)
+#define OB_DOS_DEVICES        ((HANDLE)0xFFFFFFFD)
 
 #define XBE_ENTRY_POINT       (*(PDWORD)0x00010128)
 #define XBE_ENTRY_POINT_KEY   0x94859D4B
@@ -47,5 +45,6 @@
 #define NT_TIB_STACK_LIMIT 0x08
 #define NT_TIB_USER_POINTER 0x14
 #define NT_TIB_SELF 0x18
+#define KPCR_SELF_PCR 0x1C
 
 #endif

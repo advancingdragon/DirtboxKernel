@@ -6,11 +6,16 @@
 #include "Native.h"
 
 #include <process.h>
-#include <map>
+
 
 namespace Dirtbox
 {
+    // TODO: Initialize these structures
+    OBJECT_TYPE ExEventObjectType;
     DWORD HalDiskCachePartitionCount = 3;
+    ANSI_STRING HalDiskModelNumber;
+    ANSI_STRING HalDiskSerialNumber;
+    OBJECT_TYPE IoFileObjectType;
     DWORD LaunchDataPage = 0;
     XBOX_HARDWARE_INFO XboxHardwareInfo;
     PCHAR XboxHDKey = NULL;
@@ -21,7 +26,9 @@ namespace Dirtbox
     // TODO: need to put critical sections around each of these
     // in case they are used in a multithreaded way
     PVOID AvpSavedDataAddress = (PVOID)0;
+    /*
     std::map<PXBOX_CRITICAL_SECTION, RTL_CRITICAL_SECTION> CriticalSections;
+    */
 
     BOOLEAN IsValidDosPath(PANSI_STRING String);
     NTSTATUS ConvertObjectAttributes(
@@ -29,6 +36,7 @@ namespace Dirtbox
         PXBOX_OBJECT_ATTRIBUTES Source
     );
 }
+
 
 BOOLEAN Dirtbox::IsValidDosPath(PANSI_STRING String)
 {
@@ -98,6 +106,7 @@ NTSTATUS Dirtbox::ConvertObjectAttributes(
     return STATUS_SUCCESS;
 }
 
+
 PVOID WINAPI Dirtbox::AvGetSavedDataAddress()
 {
     SwapTibs();
@@ -162,9 +171,43 @@ NTSTATUS WINAPI Dirtbox::DbgPrint(
     return STATUS_SUCCESS;
 }
 
-// export 24
+PVOID WINAPI Dirtbox::ExAllocatePoolWithTag(
+    DWORD NumberOfBytes, DWORD Tag
+)
+{
+    SwapTibs();
+
+    DebugPrint("ExAllocatePoolWithTag: 0x%x 0x%x", NumberOfBytes, Tag);
+
+    SwapTibs();
+    return NULL;
+}
+
+VOID WINAPI Dirtbox::ExFreePool(
+    PVOID Pool
+)
+{
+    SwapTibs();
+
+    DebugPrint("ExAllocatePoolWithTag: 0x%08x", Pool);
+
+    SwapTibs();
+}
+
+DWORD WINAPI Dirtbox::ExQueryPoolBlockSize(
+    PVOID PoolBlock
+)
+{
+    SwapTibs();
+
+    DebugPrint("ExQueryPoolBlockSize: 0x%08x", PoolBlock);
+
+    SwapTibs();
+    return 0;
+}
+
 NTSTATUS WINAPI Dirtbox::ExQueryNonVolatileSetting(
-    DWORD ValueIndex, DWORD *Type, PBYTE Value, SIZE_T ValueLength,
+    DWORD ValueIndex, PDWORD Type, PBYTE Value, SIZE_T ValueLength,
     PSIZE_T ResultLength
 )
 {
@@ -252,6 +295,35 @@ VOID WINAPI Dirtbox::HalReturnToFirmware(
     exit(0);
 }
 
+PIRP WINAPI Dirtbox::IoBuildSynchronousFsdRequest(
+    DWORD MajorFunction, PDEVICE_OBJECT DeviceObject, PVOID Buffer, DWORD Length, 
+    PLARGE_INTEGER StartingOffset, PKEVENT Event, PIO_STATUS_BLOCK IoStatusBlock
+)
+{
+    SwapTibs();
+
+    DebugPrint("IoBuildSynchronousFsdRequest: 0x%x 0x%08x 0x%08x 0x%x 0x%08x 0x%08x 0x%08x", 
+        MajorFunction, DeviceObject, Buffer, Length, StartingOffset, Event, IoStatusBlock);
+
+    SwapTibs();
+    return NULL;
+}
+
+NTSTATUS WINAPI Dirtbox::IoCreateDevice(
+    PDRIVER_OBJECT DriverObject, DWORD DeviceExtensionSize, PANSI_STRING DeviceName, 
+    DWORD DeviceType, BOOLEAN Exclusive, PDEVICE_OBJECT *DeviceObject
+)
+{
+    SwapTibs();
+
+    DebugPrint("IoCreateDevice: 0x%08x 0x%x \"%s\" 0x%x %i 0x%08x", 
+        DriverObject, DeviceExtensionSize, DeviceName->Buffer, DeviceType, 
+        Exclusive, DeviceObject);
+
+    SwapTibs();
+    return STATUS_UNSUCCESSFUL;
+}
+
 NTSTATUS WINAPI Dirtbox::IoCreateSymbolicLink(
     PANSI_STRING SymbolicLinkName,
     PANSI_STRING DeviceName
@@ -262,7 +334,7 @@ NTSTATUS WINAPI Dirtbox::IoCreateSymbolicLink(
     DebugPrint("IoCreateSymbolicLink: \"%s\" \"%s\"", 
         SymbolicLinkName->Buffer, DeviceName->Buffer);
 
-    // TODO: critical section
+    // We can ignore this so far, since DOS drives created already.
 
     SwapTibs();
     return STATUS_SUCCESS;
@@ -277,10 +349,98 @@ NTSTATUS WINAPI Dirtbox::IoDeleteSymbolicLink(
     DebugPrint("IoDeleteSymbolicLink: \"%s\"", 
         SymbolicLinkName->Buffer);
 
-    // TODO: critical section
+    // We can ignore this so far, since DOS drives created already.
 
     SwapTibs();
     return STATUS_SUCCESS;
+}
+
+NTSTATUS WINAPI Dirtbox::IoInvalidDeviceRequest(
+    PDEVICE_OBJECT DeviceObject, PIRP Irp
+)
+{
+    SwapTibs();
+
+    DebugPrint("IoInvalidDeviceRequest: 0x%08x 0x%08x", DeviceObject, Irp);
+
+    SwapTibs();
+    return STATUS_UNSUCCESSFUL;
+}
+
+VOID WINAPI Dirtbox::IoStartNextPacket(
+    PDEVICE_OBJECT DeviceObject
+)
+{
+    SwapTibs();
+
+    DebugPrint("IoInvalidDeviceRequest: 0x%08x", DeviceObject);
+
+    SwapTibs();
+}
+
+VOID WINAPI Dirtbox::IoStartPacket(
+    PDEVICE_OBJECT DeviceObject, PIRP Irp, PDWORD Key
+)
+{
+    SwapTibs();
+
+    DebugPrint("IoInvalidDeviceRequest: 0x%08x 0x%08x 0x%08x", DeviceObject, Irp, Key);
+
+    SwapTibs();
+}
+
+NTSTATUS WINAPI Dirtbox::IoSynchronousDeviceIoControlRequest(
+    DWORD IoControlCode, PDEVICE_OBJECT DeviceObject, 
+    PVOID InputBuffer, DWORD InputBufferLength, PVOID OutputBuffer, DWORD OutputBufferLength, 
+    PDWORD ReturnedOutputBufferLength, CHAR InternalDeviceIoControl
+)
+{
+    SwapTibs();
+
+    DebugPrint("IoSynchronousDeviceIoControlRequest: 0x%x 0x%08x 0x%08x 0x%x 0x%08x 0x%x" 
+        "0x%08x %i", 
+        IoControlCode, DeviceObject, InputBuffer, InputBufferLength, 
+        OutputBuffer, OutputBufferLength, ReturnedOutputBufferLength, InternalDeviceIoControl);
+
+    SwapTibs();
+    return STATUS_UNSUCCESSFUL;
+}
+
+NTSTATUS WINAPI Dirtbox::IoSynchronousFsdRequest(
+    DWORD MajorFunction, PDEVICE_OBJECT DeviceObject, PVOID Buffer, DWORD Length, 
+    PLARGE_INTEGER StartingOffset
+)
+{
+    SwapTibs();
+
+    DebugPrint("IoSynchronousFsdRequest: 0x%x 0x%08x 0x%08x 0x%x 0x%08x", 
+        MajorFunction, DeviceObject, Buffer, Length, StartingOffset);
+
+    SwapTibs();
+    return STATUS_UNSUCCESSFUL;
+}
+
+NTSTATUS __fastcall Dirtbox::IofCallDriver(
+    PDEVICE_OBJECT DeviceObject, PIRP Irp
+)
+{
+    SwapTibs();
+
+    DebugPrint("IofCallDriver: 0x%08x 0x%08x", DeviceObject, Irp);
+
+    SwapTibs();
+    return STATUS_UNSUCCESSFUL;
+}
+
+VOID __fastcall Dirtbox::IofCompleteRequest(
+    PIRP Irp, CHAR PriorityBoost
+)
+{
+    SwapTibs();
+
+    DebugPrint("IofCompleteRequest: 0x%08x %i", Irp, PriorityBoost);
+
+    SwapTibs();
 }
 
 VOID WINAPI Dirtbox::KeBugCheck(
@@ -522,9 +682,12 @@ NTSTATUS WINAPI Dirtbox::KeWaitForSingleObject(
     DebugPrint("KeWaitForSingleObject: 0x%08x %i %i %i %i 0x%08x",
         Object, WaitReason, WaitMode, Alertable, Timeout);
 
-    while (((PKEVENT)Object)->Header.SignalState > 0)
-    {
-    }
+    // Loop disabled since we don't signal the VBlank object
+
+    /*
+    while (((PKEVENT)Object)->Header.SignalState == 0)
+        ;
+    */
 
     SwapTibs();
     return STATUS_SUCCESS;
@@ -912,8 +1075,8 @@ NTSTATUS WINAPI Dirtbox::NtQuerySymbolicLinkObject(
 {
     SwapTibs();
 
-    DebugPrint("NtOpenSymbolicLinkObject: 0x%08x 0x%08x 0x%x",
-        LinkHandle, LinkTarget, ReturnedLength);
+    DebugPrint("NtOpenSymbolicLinkObject: 0x%08x \"%s\" 0x%x",
+        LinkHandle, LinkTarget->Buffer, ReturnedLength);
 
     // Can fail, then it assumes to be CD-ROM
 
@@ -1076,7 +1239,7 @@ NTSTATUS WINAPI Dirtbox::PsCreateSystemThreadEx(
     HANDLE Thr = (HANDLE)_beginthreadex(
         NULL, KernelStackSize + 0x1000, &ShimCallback, ShimContext, Flags, NULL
     );
-    if (!VALID_HANDLE(Thr))
+    if (Thr == 0)
     {
         free(ShimContext);
         SwapTibs();
@@ -1120,17 +1283,41 @@ NTSTATUS WINAPI Dirtbox::RtlEnterCriticalSection(
     PXBOX_CRITICAL_SECTION CriticalSection
 )
 {
+    PKPCR Kpcr = (PKPCR)__readfsdword(KPCR_SELF_PCR);
+
     SwapTibs();
 
     DebugPrint("RtlEnterCriticalSection: 0x%08x", CriticalSection);
 
+    /*
     // Not sure if it can work this way, but oh well.
     if (CriticalSections.count(CriticalSection) == 0)
         ::RtlInitializeCriticalSection(&CriticalSections[CriticalSection]);
     NTSTATUS Res = ::RtlEnterCriticalSection(&CriticalSections[CriticalSection]);
+    */
 
+    // has critical section already been acquired yet?
+    if (InterlockedIncrement(&CriticalSection->LockCount) == 0)
+    {
+        // we are the first to acquire the critical section
+    }
+    else if (CriticalSection->OwningThread == Kpcr->Prcb->CurrentThread)
+    {
+        // critical section has been acquired already, but by same thread
+        CriticalSection->RecursionCount++;
+        SwapTibs();
+        return STATUS_SUCCESS;
+    }
+    else
+    {
+        // critical section has been acquired already, by different thread
+        while (InterlockedExchange(&CriticalSection->Synchronization.SignalState, 0) != 1) ;
+    }
+
+    CriticalSection->RecursionCount = 1;
+    CriticalSection->OwningThread = Kpcr->Prcb->CurrentThread;
     SwapTibs();
-    return Res;
+    return STATUS_SUCCESS;
 }
 
 LONG WINAPI Dirtbox::RtlEqualString(
@@ -1139,7 +1326,8 @@ LONG WINAPI Dirtbox::RtlEqualString(
 {
     SwapTibs();
 
-    DebugPrint("RtlEqualString: 0x%08x 0x%08x %i", String1, String2, CaseInSensitive);
+    DebugPrint("RtlEqualString:  \"%s\" \"%s\" %i", 
+        String1->Buffer, String2->Buffer, CaseInSensitive);
 
     LONG Res = ::RtlEqualString(String1, String2, CaseInSensitive);
 
@@ -1153,7 +1341,7 @@ VOID WINAPI Dirtbox::RtlInitAnsiString(
 {
     SwapTibs();
 
-    DebugPrint("RtlInitAnsiString: 0x%08x 0x%08x", DestinationString, SourceString);
+    DebugPrint("RtlInitAnsiString: 0x%08x \"%s\"", DestinationString, SourceString);
 
     ::RtlInitAnsiString(DestinationString, SourceString);
 
@@ -1167,11 +1355,14 @@ VOID WINAPI Dirtbox::RtlInitializeCriticalSection(
     SwapTibs();
 
     DebugPrint("RtlInitializeCriticalSection: 0x%08x", CriticalSection);
+
+    /*
     // Not sure if it can work this way, but oh well.
     ::RtlInitializeCriticalSection(&CriticalSections[CriticalSection]);
+    */
 
     CriticalSection->Synchronization.Type = EventSynchronizationObject;
-    CriticalSection->Synchronization.Size = sizeof(KEVENT)/4;
+    CriticalSection->Synchronization.Size = sizeof(DISPATCHER_HEADER)/4;
     CriticalSection->Synchronization.SignalState = 0;
     CriticalSection->Synchronization.WaitListHead.Blink = 
         &CriticalSection->Synchronization.WaitListHead;
@@ -1192,8 +1383,30 @@ VOID WINAPI Dirtbox::RtlLeaveCriticalSection(
     SwapTibs();
 
     DebugPrint("RtlLeaveCriticalSection: 0x%08x", CriticalSection);
+
+    /*
     // Not sure if it can work this way, but oh well.
     ::RtlLeaveCriticalSection(&CriticalSections[CriticalSection]);
+    */
+
+    // is this the last release of critical section in this thread?
+    CriticalSection->RecursionCount--;
+    if (CriticalSection->RecursionCount > 0)
+    {
+        InterlockedDecrement(&CriticalSection->LockCount);
+    }
+    else
+    {
+        // this thread no longer holds this critical section
+        CriticalSection->OwningThread = NULL;
+        // are there other threads waiting on this critical section?
+        if (InterlockedDecrement(&CriticalSection->LockCount) > -1)
+        {
+            // signal to other threads waiting on critical section
+            CriticalSection->Synchronization.SignalState = 1;
+        }
+    }
+
 
     SwapTibs();
 }
