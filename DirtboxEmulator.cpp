@@ -8,8 +8,6 @@
 namespace Dirtbox
 {
     CRITICAL_SECTION PrintLock;
-    DWORD PrintReturn;
-    CHAR PrintStringError[] = "Error: ";
 }
 
 BOOL WINAPI DllMain(

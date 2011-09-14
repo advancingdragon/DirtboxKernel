@@ -1,7 +1,7 @@
 #ifndef _NATIVE_H_
 #define _NATIVE_H_
 
-#include <windows.h>
+#include "DirtboxTypes.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -9,7 +9,7 @@ extern "C"
 #endif
 
 NTSTATUS WINAPI NtAllocateVirtualMemory(
-    HANDLE ProcessHandle, LPVOID *BaseAddress, DWORD_PTR ZeroBits, PSIZE_T RegionSize,
+    HANDLE ProcessHandle, PVOID *BaseAddress, DWORD ZeroBits, PSIZE_T RegionSize,
     DWORD AllocationType, DWORD Protect
 );
 
@@ -23,15 +23,15 @@ NTSTATUS WINAPI NtCreateEvent(
 );
 
 NTSTATUS WINAPI NtCreateFile(
-    PHANDLE FileHandle, DWORD DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes,
+    PHANDLE FileHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes,
     PIO_STATUS_BLOCK IoStatusBlock, PLARGE_INTEGER AllocationSize, DWORD FileAttributes,
     DWORD ShareAccess, DWORD CreateDisposition, DWORD CreateOptions,
-    LPVOID EaBuffer, DWORD EaLength
+    PVOID EaBuffer, DWORD EaLength
 );
 
 NTSTATUS WINAPI NtCreateSemaphore(
     PHANDLE SemaphoreHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes,
-    DWORD InitialCount, DWORD MaximumCount
+    LONG InitialCount, LONG MaximumCount
 );
 
 NTSTATUS WINAPI NtDelayExecution(
@@ -43,7 +43,7 @@ NTSTATUS WINAPI NtFlushBuffersFile(
 );
 
 NTSTATUS WINAPI NtFreeVirtualMemory(
-    HANDLE ProcessHandle, LPVOID *BaseAddress, LPDWORD RegionSize, DWORD FreeType
+    HANDLE ProcessHandle, PVOID *BaseAddress, PSIZE_T RegionSize, DWORD FreeType
 );
 
 NTSTATUS WINAPI NtOpenFile(
@@ -52,14 +52,14 @@ NTSTATUS WINAPI NtOpenFile(
 );
 
 NTSTATUS WINAPI NtPulseEvent(
-    HANDLE EventHandle, PLONG PreviousState
+    HANDLE EventHandle, PLONG PulseCount
 );
 
 NTSTATUS WINAPI NtQueryDirectoryFile(
     HANDLE FileHandle, HANDLE Event, PIO_APC_ROUTINE ApcRoutine, PVOID ApcContext,
     PIO_STATUS_BLOCK IoStatusBlock, PVOID FileInformation, DWORD Length, 
     FILE_INFORMATION_CLASS FileInformationClass, BOOLEAN ReturnSingleEntry, 
-    PUNICODE_STRING FileMask, BOOLEAN RestartScan
+    PUNICODE_STRING FileName, BOOLEAN RestartScan
 );
 
 NTSTATUS WINAPI NtQueryInformationFile(
@@ -68,18 +68,18 @@ NTSTATUS WINAPI NtQueryInformationFile(
 );
 
 NTSTATUS WINAPI NtQueryVolumeInformationFile(
-    HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FsInformation, ULONG Length, 
+    HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FsInformation, DWORD Length, 
     FS_INFORMATION_CLASS FsInformationClass
 );
 
 NTSTATUS WINAPI NtReadFile(
-    HANDLE FileHandle, HANDLE Event, PVOID ApcRoutine, PVOID ApcContext,
+    HANDLE FileHandle, HANDLE Event, PIO_APC_ROUTINE ApcRoutine, PVOID ApcContext,
     PIO_STATUS_BLOCK IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset,
     PDWORD Key
 );
 
 NTSTATUS WINAPI NtReleaseSemaphore(
-    HANDLE SemaphoreHandle, DWORD ReleaseCount, PDWORD PreviousCount
+    HANDLE SemaphoreHandle, LONG ReleaseCount, PLONG PreviousCount
 );
 
 NTSTATUS WINAPI NtResumeThread(
@@ -108,7 +108,7 @@ DWORD WINAPI NtWaitForSingleObject(
 );
 
 NTSTATUS WINAPI NtWriteFile(
-    HANDLE FileHandle, HANDLE Event, PVOID ApcRoutine, PVOID ApcContext,
+    HANDLE FileHandle, HANDLE Event, PIO_APC_ROUTINE ApcRoutine, PVOID ApcContext,
     PIO_STATUS_BLOCK IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset,
     PDWORD Key
 );

@@ -922,7 +922,7 @@ NTSTATUS WINAPI Dirtbox::NtClose(
 }
 
 NTSTATUS WINAPI Dirtbox::NtCreateFile(
-    PHANDLE FileHandle, DWORD DesiredAccess, PXBOX_OBJECT_ATTRIBUTES ObjectAttributes, 
+    PHANDLE FileHandle, ACCESS_MASK DesiredAccess, PXBOX_OBJECT_ATTRIBUTES ObjectAttributes, 
     PIO_STATUS_BLOCK IoStatusBlock, PLARGE_INTEGER AllocationSize, DWORD FileAttributes, 
     DWORD ShareAccess, DWORD CreateDisposition, DWORD CreateOptions 
 )
@@ -957,9 +957,10 @@ NTSTATUS WINAPI Dirtbox::NtCreateFile(
 }
 
 NTSTATUS WINAPI Dirtbox::NtDeviceIoControlFile(
-    HANDLE FileHandle, PKEVENT Event, PVOID ApcRoutine, PVOID ApcContext, 
-    PIO_STATUS_BLOCK IoStatusBlock, DWORD IoControlCode, PVOID InputBuffer, DWORD InputBufferLength, 
-    PVOID OutputBuffer, DWORD OutputBufferLength)
+    HANDLE FileHandle, PKEVENT Event, PIO_APC_ROUTINE ApcRoutine, PVOID ApcContext, 
+    PIO_STATUS_BLOCK IoStatusBlock, DWORD IoControlCode, 
+    PVOID InputBuffer, DWORD InputBufferLength, PVOID OutputBuffer, DWORD OutputBufferLength
+)
 {
     SwapTibs();
 
@@ -1008,7 +1009,7 @@ NTSTATUS WINAPI Dirtbox::NtFreeVirtualMemory(
 }
 
 NTSTATUS WINAPI Dirtbox::NtFsControlFile(
-    HANDLE FileHandle, PKEVENT Event, PVOID ApcRoutine, PVOID ApcContext, 
+    HANDLE FileHandle, PKEVENT Event, PIO_APC_ROUTINE ApcRoutine, PVOID ApcContext, 
     PIO_STATUS_BLOCK IoStatusBlock, DWORD IoControlCode, PVOID InputBuffer, DWORD InputBufferLength, 
     PVOID OutputBuffer, DWORD OutputBufferLength
 )
@@ -1152,7 +1153,7 @@ NTSTATUS WINAPI Dirtbox::NtQueryVolumeInformationFile(
 }
 
 NTSTATUS WINAPI Dirtbox::NtReadFile(
-    HANDLE FileHandle, HANDLE Event, PVOID ApcRoutine, PVOID ApcContext,
+    HANDLE FileHandle, HANDLE Event, PIO_APC_ROUTINE ApcRoutine, PVOID ApcContext,
     PIO_STATUS_BLOCK IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
 )
 {
@@ -1212,7 +1213,7 @@ NTSTATUS WINAPI Dirtbox::NtWaitForSingleObjectEx(
 }
 
 NTSTATUS WINAPI Dirtbox::NtWriteFile( 
-    HANDLE FileHandle, PVOID Event, PVOID ApcRoutine, PVOID ApcContext,
+    HANDLE FileHandle, PVOID Event, PIO_APC_ROUTINE ApcRoutine, PVOID ApcContext,
     PIO_STATUS_BLOCK IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
 )
 {

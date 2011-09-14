@@ -174,15 +174,23 @@ namespace Dirtbox
     NTSTATUS WINAPI NtClose(
         HANDLE Handle
     );
+    NTSTATUS WINAPI NtCreateEvent(
+        PHANDLE EventHandle, PXBOX_OBJECT_ATTRIBUTES ObjectAttributes, EVENT_TYPE EventType, 
+        BOOLEAN InitialState
+    );
     NTSTATUS WINAPI NtCreateFile(
-        PHANDLE FileHandle, DWORD DesiredAccess, PXBOX_OBJECT_ATTRIBUTES ObjectAttributes, 
+        PHANDLE FileHandle, ACCESS_MASK DesiredAccess, PXBOX_OBJECT_ATTRIBUTES ObjectAttributes, 
         PIO_STATUS_BLOCK IoStatusBlock, PLARGE_INTEGER AllocationSize, DWORD FileAttributes, 
         DWORD ShareAccess, DWORD CreateDisposition, DWORD CreateOptions 
     );
+    NTSTATUS WINAPI NtCreateSemaphore(
+        PHANDLE SemaphoreHandle, PXBOX_OBJECT_ATTRIBUTES ObjectAttributes, 
+        LONG InitialCount, LONG MaximumCount
+    );
     NTSTATUS WINAPI NtDeviceIoControlFile(
-        HANDLE FileHandle, PKEVENT Event, PVOID ApcRoutine, PVOID ApcContext, 
-        PIO_STATUS_BLOCK IoStatusBlock, DWORD IoControlCode, PVOID InputBuffer, DWORD InputBufferLength, 
-        PVOID OutputBuffer, DWORD OutputBufferLength
+        HANDLE FileHandle, PKEVENT Event, PIO_APC_ROUTINE ApcRoutine, PVOID ApcContext, 
+        PIO_STATUS_BLOCK IoStatusBlock, DWORD IoControlCode, 
+        PVOID InputBuffer, DWORD InputBufferLength, PVOID OutputBuffer, DWORD OutputBufferLength
     );
     NTSTATUS WINAPI NtFlushBuffersFile(
         HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock
@@ -191,7 +199,7 @@ namespace Dirtbox
         PVOID *BaseAddress, PDWORD FreeSize, DWORD FreeType
     );
     NTSTATUS WINAPI NtFsControlFile(
-        HANDLE FileHandle, PKEVENT Event, PVOID ApcRoutine, PVOID ApcContext, 
+        HANDLE FileHandle, PKEVENT Event, PIO_APC_ROUTINE ApcRoutine, PVOID ApcContext, 
         PIO_STATUS_BLOCK IoStatusBlock, DWORD IoControlCode, PVOID InputBuffer, DWORD InputBufferLength, 
         PVOID OutputBuffer, DWORD OutputBufferLength
     );
@@ -201,6 +209,14 @@ namespace Dirtbox
     );
     NTSTATUS WINAPI NtOpenSymbolicLinkObject(
         PHANDLE LinkHandle, PXBOX_OBJECT_ATTRIBUTES ObjectAttributes
+    );
+    NTSTATUS WINAPI NtPulseEvent(
+        PHANDLE EventHandle, PLONG PreviousState
+    );
+    NTSTATUS WINAPI NtQueryDirectoryFile(
+        HANDLE FileHandle, HANDLE Event, PIO_APC_ROUTINE ApcRoutine, PVOID ApcContext, 
+        PIO_STATUS_BLOCK IoStatusBlock, PVOID FileInformation, DWORD Length, 
+        FILE_INFORMATION_CLASS FileInformationClass, PANSI_STRING FileName, BOOLEAN RestartScan
     );
     NTSTATUS WINAPI NtQueryInformationFile(
         HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FileInformation, DWORD Length, 
@@ -217,13 +233,26 @@ namespace Dirtbox
         FS_INFORMATION_CLASS FsInformationClass
     );
     NTSTATUS WINAPI NtReadFile(
-        HANDLE FileHandle, HANDLE Event, PVOID ApcRoutine, PVOID ApcContext,
+        HANDLE FileHandle, HANDLE Event, PIO_APC_ROUTINE ApcRoutine, PVOID ApcContext,
         PIO_STATUS_BLOCK IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
+    );
+    NTSTATUS WINAPI NtReleaseSemaphore(
+        HANDLE SemaphoreHandle, LONG ReleaseCount, PLONG PreviousCount
+    );
+    NTSTATUS WINAPI NtResumeThread(
+        HANDLE ThreadHandle, PDWORD PreviousSuspendCount
+    );
+    NTSTATUS WINAPI NtSetEvent(
+        HANDLE EventHandle, PLONG PreviousState
     );
     NTSTATUS WINAPI NtSetInformationFile(
         HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FileInformation, DWORD Length, 
         DWORD FileInformationClass
     );
+    NTSTATUS WINAPI NtSuspendThread(
+        HANDLE ThreadHandle, PDWORD PreviousSuspendCount
+    );
+    NTSTATUS WINAPI NtYieldExecution();
     NTSTATUS WINAPI NtWaitForSingleObject(
         HANDLE Handle, BOOLEAN Alertable, PLARGE_INTEGER Timeout
     );
@@ -231,7 +260,7 @@ namespace Dirtbox
         HANDLE Handle, CHAR WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Timeout
     );
     NTSTATUS WINAPI NtWriteFile( 
-        HANDLE FileHandle, PVOID Event, PVOID ApcRoutine, PVOID ApcContext,
+        HANDLE FileHandle, HANDLE Event, PIO_APC_ROUTINE ApcRoutine, PVOID ApcContext,
         PIO_STATUS_BLOCK IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
     );
 
