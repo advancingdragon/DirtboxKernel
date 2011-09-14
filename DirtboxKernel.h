@@ -252,7 +252,6 @@ namespace Dirtbox
     NTSTATUS WINAPI NtSuspendThread(
         HANDLE ThreadHandle, PDWORD PreviousSuspendCount
     );
-    NTSTATUS WINAPI NtYieldExecution();
     NTSTATUS WINAPI NtWaitForSingleObject(
         HANDLE Handle, BOOLEAN Alertable, PLARGE_INTEGER Timeout
     );
@@ -263,6 +262,7 @@ namespace Dirtbox
         HANDLE FileHandle, HANDLE Event, PIO_APC_ROUTINE ApcRoutine, PVOID ApcContext,
         PIO_STATUS_BLOCK IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset
     );
+    NTSTATUS WINAPI NtYieldExecution();
 
     NTSTATUS WINAPI PsCreateSystemThreadEx(
         PHANDLE ThreadHandle, DWORD ThreadExtensionSize, DWORD KernelStackSize, DWORD TlsDataSize, 

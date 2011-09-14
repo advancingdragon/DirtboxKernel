@@ -421,7 +421,7 @@ NTSTATUS WINAPI Dirtbox::IoSynchronousDeviceIoControlRequest(
 {
     SwapTibs();
 
-    DebugPrint("IoSynchronousDeviceIoControlRequest: 0x%x 0x%08x 0x%08x 0x%x 0x%08x 0x%x" 
+    DebugPrint("IoSynchronousDeviceIoControlRequest: 0x%x 0x%08x 0x%08x 0x%x 0x%08x 0x%x " 
         "0x%08x %i", 
         IoControlCode, DeviceObject, InputBuffer, InputBufferLength, 
         OutputBuffer, OutputBufferLength, ReturnedOutputBufferLength, InternalDeviceIoControl);
@@ -506,8 +506,7 @@ NTSTATUS WINAPI Dirtbox::KeDelayExecutionThread(
 {
     SwapTibs();
 
-    DebugPrint("KeDelayExecutionThread: %i %i 0x%08x", 
-        WaitMode, Alertable, Interval);
+    DebugPrint("KeDelayExecutionThread: %i %i 0x%08x", WaitMode, Alertable, Interval);
 
     NTSTATUS Ret = ::NtDelayExecution(Alertable, Interval);
 
@@ -544,8 +543,7 @@ VOID WINAPI Dirtbox::KeInitializeDpc(
 {
     SwapTibs();
 
-    DebugPrint("KeInitializeDpc: 0x%08x 0x%08x 0x%08x",
-        Dpc, DeferredRoutine, DeferredContext);
+    DebugPrint("KeInitializeDpc: 0x%08x 0x%08x 0x%08x", Dpc, DeferredRoutine, DeferredContext);
 
     Dpc->DeferredRoutine = DeferredRoutine;
     Dpc->Type = DpcObject;
@@ -581,8 +579,7 @@ VOID WINAPI Dirtbox::KeInitializeTimerEx(
 {
     SwapTibs();
 
-    DebugPrint("KeInitializeTimerEx: %i %i 0x%08x", 
-        Timer, Type);
+    DebugPrint("KeInitializeTimerEx: %i %i 0x%08x", Timer, Type);
 
     Timer->Header.Type = TimerNotificationObject + Type;
     Timer->Header.Inserted = 0;
@@ -625,8 +622,7 @@ VOID WINAPI Dirtbox::KeQuerySystemTime(
 {
     SwapTibs();
 
-    DebugPrint("KeQuerySystemTime: 0x%08x",
-        CurrentTime);
+    DebugPrint("KeQuerySystemTime: 0x%08x", CurrentTime);
 
     SYSTEMTIME SystemTime;
     GetSystemTime(&SystemTime);
@@ -661,8 +657,7 @@ BOOLEAN WINAPI Dirtbox::KeSetEvent(
 {
     SwapTibs();
 
-    DebugPrint("KeSetEvent: 0x%08x %i %i",
-        Event, Increment, Wait);
+    DebugPrint("KeSetEvent: 0x%08x %i %i", Event, Increment, Wait);
 
     // thinking of how to implement Ke events with the Windows API event objects.
     // maybe a hash table of addresses of KEVENT objects?
@@ -794,8 +789,7 @@ PVOID WINAPI Dirtbox::MmClaimGpuInstanceMemory(
 {
     SwapTibs();
 
-    DebugPrint("MmClaimGpuInstanceMemory: 0x%x 0x%08x",
-        NumberOfBytes, NumberOfPaddingBytes);
+    DebugPrint("MmClaimGpuInstanceMemory: 0x%x 0x%08x", NumberOfBytes, NumberOfPaddingBytes);
 
     *NumberOfPaddingBytes = PADDING_SIZE;
     if (NumberOfBytes == 0xFFFFFFFF)
@@ -816,8 +810,7 @@ VOID WINAPI Dirtbox::MmFreeContiguousMemory(
 {
     SwapTibs();
 
-    DebugPrint("MmFreeContiguousMemory: 0x%08x",
-        BaseAddress);
+    DebugPrint("MmFreeContiguousMemory: 0x%08x", BaseAddress);
 
     VirtualFree(BaseAddress, 0, MEM_RELEASE);
 
@@ -844,8 +837,7 @@ DWORD WINAPI Dirtbox::MmQueryAddressProtect(
 {
     SwapTibs();
 
-    DebugPrint("MmQueryAddressProtect: 0x%08x",
-        VirtualAddress);
+    DebugPrint("MmQueryAddressProtect: 0x%08x", VirtualAddress);
 
     MEMORY_BASIC_INFORMATION MemInfo;
     VirtualQuery(VirtualAddress, &MemInfo, sizeof(MEMORY_BASIC_INFORMATION));
@@ -860,8 +852,7 @@ DWORD WINAPI Dirtbox::MmQueryAllocationSize(
 {
     SwapTibs();
 
-    DebugPrint("MmQueryAllocationSize: 0x%08x",
-        BaseAddress);
+    DebugPrint("MmQueryAllocationSize: 0x%08x", BaseAddress);
 
     MEMORY_BASIC_INFORMATION MemInfo;
     VirtualQuery(BaseAddress, &MemInfo, sizeof(MEMORY_BASIC_INFORMATION));
@@ -912,10 +903,42 @@ NTSTATUS WINAPI Dirtbox::NtClose(
 {
     SwapTibs();
 
-    DebugPrint("NtClose: 0x%x",
-        Handle);
+    DebugPrint("NtClose: 0x%x", Handle);
 
     NTSTATUS Res = ::NtClose(Handle);
+
+    SwapTibs();
+    return Res;
+}
+
+NTSTATUS WINAPI Dirtbox::NtCreateEvent(
+    PHANDLE EventHandle, PXBOX_OBJECT_ATTRIBUTES ObjectAttributes, EVENT_TYPE EventType, 
+    BOOLEAN InitialState
+)
+{
+    SwapTibs();
+
+    DebugPrint("NtCreateEvent: 0x%08x 0x%08x \"%s\" 0x%x %i",
+        EventHandle, ObjectAttributes, ObjectAttributes->ObjectName->Buffer, EventType,
+        InitialState);
+
+    ACCESS_MASK NtDesiredAccess = EVENT_ALL_ACCESS;
+    OBJECT_ATTRIBUTES NtObjectAttributes;
+    UNICODE_STRING ObjectName;
+    WCHAR Buffer[MAX_PATH];
+    NTSTATUS Res = ConvertObjectAttributes(
+        &NtObjectAttributes, &ObjectName, Buffer, ObjectAttributes
+    );
+    if (!NT_SUCCESS(Res))
+    {
+        SwapTibs();
+        return Res;
+    }
+
+    // Call Windows NT equivalent
+    Res = ::NtCreateEvent(
+        EventHandle, NtDesiredAccess, &NtObjectAttributes, EventType, InitialState
+    );
 
     SwapTibs();
     return Res;
@@ -956,6 +979,39 @@ NTSTATUS WINAPI Dirtbox::NtCreateFile(
     return Res;
 }
 
+NTSTATUS WINAPI Dirtbox::NtCreateSemaphore(
+    PHANDLE SemaphoreHandle, PXBOX_OBJECT_ATTRIBUTES ObjectAttributes, 
+    LONG InitialCount, LONG MaximumCount
+)
+{
+    SwapTibs();
+
+    DebugPrint("NtCreateSemaphore: 0x%08x 0x%08x \"%s\" %i %i",
+        SemaphoreHandle, ObjectAttributes, ObjectAttributes->ObjectName->Buffer,
+        InitialCount, MaximumCount);
+
+    ACCESS_MASK NtDesiredAccess = SEMAPHORE_ALL_ACCESS;
+    OBJECT_ATTRIBUTES NtObjectAttributes;
+    UNICODE_STRING ObjectName;
+    WCHAR Buffer[MAX_PATH];
+    NTSTATUS Res = ConvertObjectAttributes(
+        &NtObjectAttributes, &ObjectName, Buffer, ObjectAttributes
+    );
+    if (!NT_SUCCESS(Res))
+    {
+        SwapTibs();
+        return Res;
+    }
+
+    // Call Windows NT equivalent
+    Res = ::NtCreateSemaphore(
+        SemaphoreHandle, NtDesiredAccess, &NtObjectAttributes, InitialCount, MaximumCount
+    );
+
+    SwapTibs();
+    return Res;
+}
+
 NTSTATUS WINAPI Dirtbox::NtDeviceIoControlFile(
     HANDLE FileHandle, PKEVENT Event, PIO_APC_ROUTINE ApcRoutine, PVOID ApcContext, 
     PIO_STATUS_BLOCK IoStatusBlock, DWORD IoControlCode, 
@@ -982,10 +1038,9 @@ NTSTATUS WINAPI Dirtbox::NtFlushBuffersFile(
 {
     SwapTibs();
 
-    DebugPrint("NtFlushBuffersFile: 0x%08x 0x%08x", 
-        FileHandle, IoStatusBlock);
+    DebugPrint("NtFlushBuffersFile: 0x%08x 0x%08x", FileHandle, IoStatusBlock);
 
-    DWORD Res = ::NtFlushBuffersFile(FileHandle, IoStatusBlock);
+    NTSTATUS Res = ::NtFlushBuffersFile(FileHandle, IoStatusBlock);
 
     SwapTibs();
     return Res;
@@ -1073,7 +1128,49 @@ NTSTATUS WINAPI Dirtbox::NtOpenSymbolicLinkObject(
     // Can fail, then it assumes to be CD-ROM
 
     SwapTibs();
-    return -1;
+    return STATUS_UNSUCCESSFUL;
+}
+
+NTSTATUS WINAPI Dirtbox::NtPulseEvent(
+    PHANDLE EventHandle, PLONG PreviousState
+)
+{
+    SwapTibs();
+
+    DebugPrint("NtPulseEvent: 0x%08x 0x%08x", EventHandle, PreviousState);
+
+    NTSTATUS Res = ::NtPulseEvent(EventHandle, PreviousState);
+
+    SwapTibs();
+    return Res;
+}
+
+NTSTATUS WINAPI Dirtbox::NtQueryDirectoryFile(
+    HANDLE FileHandle, HANDLE Event, PIO_APC_ROUTINE ApcRoutine, PVOID ApcContext, 
+    PIO_STATUS_BLOCK IoStatusBlock, PVOID FileInformation, DWORD Length, 
+    FILE_INFORMATION_CLASS FileInformationClass, PANSI_STRING FileName, BOOLEAN RestartScan
+)
+{
+    SwapTibs();
+
+    DebugPrint("NtQueryDirectoryFile: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%x " 
+        "0x%08x \"%s\" %i",
+        FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, 
+        FileInformationClass, FileName->Buffer, RestartScan);
+
+    UNICODE_STRING NtFileName;
+    WCHAR Buffer[MAX_PATH];
+    RtlInitEmptyUnicodeString(&NtFileName, Buffer, MAX_PATH);
+    RtlAnsiStringToUnicodeString(&NtFileName, FileName, FALSE);
+
+    // not sure if ReturnSingleEntry should be FALSE
+    NTSTATUS Res = ::NtQueryDirectoryFile(
+        FileHandle, Event, NULL, NULL, IoStatusBlock, FileInformation, Length, 
+        FileInformationClass, FALSE, &NtFileName, RestartScan
+    );
+
+    SwapTibs();
+    return Res;
 }
 
 NTSTATUS WINAPI Dirtbox::NtQueryInformationFile(
@@ -1086,7 +1183,7 @@ NTSTATUS WINAPI Dirtbox::NtQueryInformationFile(
     DebugPrint("NtQueryInformationFile: 0x%08x 0x%08x 0x%08x 0x%x 0x%x",
         FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
 
-    DWORD Res = ::NtQueryInformationFile(
+    NTSTATUS Res = ::NtQueryInformationFile(
         FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass
     );
 
@@ -1106,7 +1203,7 @@ NTSTATUS WINAPI Dirtbox::NtQuerySymbolicLinkObject(
     // Can fail, then it assumes to be CD-ROM
 
     SwapTibs();
-    return -1;
+    return STATUS_UNSUCCESSFUL;
 }
 
 NTSTATUS WINAPI Dirtbox::NtQueryVirtualMemory(
@@ -1115,8 +1212,7 @@ NTSTATUS WINAPI Dirtbox::NtQueryVirtualMemory(
 {
     SwapTibs();
 
-    DebugPrint("NtQueryVirtualMemory: 0x%08x 0x%08x",
-        BaseAddress, MemoryInformation);
+    DebugPrint("NtQueryVirtualMemory: 0x%08x 0x%08x", BaseAddress, MemoryInformation);
 
     NTSTATUS Res = VirtualQuery(
         BaseAddress, MemoryInformation, sizeof(MEMORY_BASIC_INFORMATION)
@@ -1136,7 +1232,7 @@ NTSTATUS WINAPI Dirtbox::NtQueryVolumeInformationFile(
     DebugPrint("NtQueryVolumeInformationFile: 0x%08x 0x%08x 0x%08x 0x%x 0x%08x",
         FileHandle, IoStatusBlock, FsInformation, Length, FsInformationClass);
 
-    DWORD Res = ::NtQueryVolumeInformationFile(
+    NTSTATUS Res = ::NtQueryVolumeInformationFile(
         FileHandle, IoStatusBlock, FsInformation, Length, FsInformationClass
     );
 
@@ -1163,8 +1259,51 @@ NTSTATUS WINAPI Dirtbox::NtReadFile(
         FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset);
 
     NTSTATUS Res = ::NtReadFile(
-        FileHandle, Event, NULL, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, NULL
+        FileHandle, Event, NULL, NULL, IoStatusBlock, Buffer, Length, ByteOffset, NULL
     );
+
+    SwapTibs();
+    return Res;
+}
+
+NTSTATUS WINAPI Dirtbox::NtReleaseSemaphore(
+    HANDLE SemaphoreHandle, LONG ReleaseCount, PLONG PreviousCount
+)
+{
+    SwapTibs();
+
+    DebugPrint("NtReleaseSemaphore: 0x%08x %i 0x%08x",
+        SemaphoreHandle, ReleaseCount, PreviousCount);
+
+    NTSTATUS Res = ::NtReleaseSemaphore(SemaphoreHandle, ReleaseCount, PreviousCount);
+
+    SwapTibs();
+    return Res;
+}
+
+NTSTATUS WINAPI Dirtbox::NtResumeThread(
+    HANDLE ThreadHandle, PDWORD PreviousSuspendCount
+)
+{
+    SwapTibs();
+
+    DebugPrint("NtResumeThread: 0x%08x 0x%08x", ThreadHandle, PreviousSuspendCount);
+
+    NTSTATUS Res = ::NtResumeThread(ThreadHandle, PreviousSuspendCount);
+
+    SwapTibs();
+    return Res;
+}
+
+NTSTATUS WINAPI Dirtbox::NtSetEvent(
+    HANDLE EventHandle, PLONG PreviousState
+)
+{
+    SwapTibs();
+
+    DebugPrint("NtSetEvent: 0x%08x 0x%08x", EventHandle, PreviousState);
+
+    NTSTATUS Res = ::NtSetEvent(EventHandle, PreviousState);
 
     SwapTibs();
     return Res;
@@ -1187,6 +1326,21 @@ NTSTATUS WINAPI Dirtbox::NtSetInformationFile(
     SwapTibs();
     return Res;
 }
+
+NTSTATUS WINAPI Dirtbox::NtSuspendThread(
+    HANDLE ThreadHandle, PDWORD PreviousSuspendCount
+)
+{
+    SwapTibs();
+
+    DebugPrint("NtSuspendThread: 0x%08x 0x%08x", ThreadHandle, PreviousSuspendCount);
+
+    NTSTATUS Res = ::NtSuspendThread(ThreadHandle, PreviousSuspendCount);
+
+    SwapTibs();
+    return Res;
+}
+
 
 NTSTATUS WINAPI Dirtbox::NtWaitForSingleObject(
     HANDLE Handle, BOOLEAN Alertable, PLARGE_INTEGER Timeout
@@ -1223,8 +1377,20 @@ NTSTATUS WINAPI Dirtbox::NtWriteFile(
         FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset);
 
     NTSTATUS Res = ::NtWriteFile(
-        FileHandle, Event, NULL, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, NULL
+        FileHandle, Event, NULL, NULL, IoStatusBlock, Buffer, Length, ByteOffset, NULL
     );
+
+    SwapTibs();
+    return Res;
+}
+
+NTSTATUS WINAPI Dirtbox::NtYieldExecution()
+{
+    SwapTibs();
+
+    DebugPrint("NtYieldExecution");
+
+    NTSTATUS Res = ::NtYieldExecution();
 
     SwapTibs();
     return Res;

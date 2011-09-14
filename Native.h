@@ -3,10 +3,8 @@
 
 #include "DirtboxTypes.h"
 
-#ifdef __cplusplus
 extern "C"
 {
-#endif
 
 NTSTATUS WINAPI NtAllocateVirtualMemory(
     HANDLE ProcessHandle, PVOID *BaseAddress, DWORD ZeroBits, PSIZE_T RegionSize,
@@ -171,8 +169,6 @@ VOID WINAPI RtlUnwind(
     PVOID TargetFrame, PVOID TargetIp, PEXCEPTION_RECORD ExceptionRecord, PVOID ReturnValue
 );
 
-#ifdef __cplusplus
 }
-#endif
 
 #endif

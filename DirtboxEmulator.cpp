@@ -254,8 +254,14 @@ VOID Dirtbox::InitializeKernel()
         case 187:
             KernelImageThunks[i] = (DWORD)&NtClose;
             break;
+        case 189:
+            KernelImageThunks[i] = (DWORD)&NtCreateEvent;
+            break;
         case 190:
             KernelImageThunks[i] = (DWORD)&NtCreateFile;
+            break;
+        case 193:
+            KernelImageThunks[i] = (DWORD)&NtCreateSemaphore;
             break;
         case 196:
             KernelImageThunks[i] = (DWORD)&NtDeviceIoControlFile;
@@ -275,6 +281,12 @@ VOID Dirtbox::InitializeKernel()
         case 203:
             KernelImageThunks[i] = (DWORD)&NtOpenSymbolicLinkObject;
             break;
+        case 205:
+            KernelImageThunks[i] = (DWORD)&NtPulseEvent;
+            break;
+        case 207:
+            KernelImageThunks[i] = (DWORD)&NtQueryDirectoryFile;
+            break;
         case 211:
             KernelImageThunks[i] = (DWORD)&NtQueryInformationFile;
             break;
@@ -290,8 +302,20 @@ VOID Dirtbox::InitializeKernel()
         case 219:
             KernelImageThunks[i] = (DWORD)&NtReadFile;
             break;
+        case 222:
+            KernelImageThunks[i] = (DWORD)&NtReleaseSemaphore;
+            break;
+        case 224:
+            KernelImageThunks[i] = (DWORD)&NtResumeThread;
+            break;
+        case 225:
+            KernelImageThunks[i] = (DWORD)&NtSetEvent;
+            break;
         case 226:
             KernelImageThunks[i] = (DWORD)&NtSetInformationFile;
+            break;
+        case 231:
+            KernelImageThunks[i] = (DWORD)&NtSuspendThread;
             break;
         case 233:
             KernelImageThunks[i] = (DWORD)&NtWaitForSingleObject;
@@ -301,6 +325,9 @@ VOID Dirtbox::InitializeKernel()
             break;
         case 236:
             KernelImageThunks[i] = (DWORD)&NtWriteFile;
+            break;
+        case 238:
+            KernelImageThunks[i] = (DWORD)&NtYieldExecution;
             break;
         case 255:
             KernelImageThunks[i] = (DWORD)&PsCreateSystemThreadEx;
