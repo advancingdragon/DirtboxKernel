@@ -273,7 +273,7 @@ namespace Dirtbox
     );
 
     extern XBOX_HARDWARE_INFO XboxHardwareInfo;
-    extern PCHAR XboxHDKey;
+    extern CHAR XboxHDKey[];
     extern XBOX_KRNL_VERSION XboxKrnlVersion;
 
     extern DWORD XeImageFileName;

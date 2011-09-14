@@ -17,11 +17,21 @@ NTSTATUS WINAPI NtClose(
     HANDLE Handle
 );
 
+NTSTATUS WINAPI NtCreateEvent(
+    PHANDLE EventHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes,
+    EVENT_TYPE EventType, BOOLEAN InitialState
+);
+
 NTSTATUS WINAPI NtCreateFile(
     PHANDLE FileHandle, DWORD DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes,
     PIO_STATUS_BLOCK IoStatusBlock, PLARGE_INTEGER AllocationSize, DWORD FileAttributes,
     DWORD ShareAccess, DWORD CreateDisposition, DWORD CreateOptions,
     LPVOID EaBuffer, DWORD EaLength
+);
+
+NTSTATUS WINAPI NtCreateSemaphore(
+    PHANDLE SemaphoreHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes,
+    DWORD InitialCount, DWORD MaximumCount
 );
 
 NTSTATUS WINAPI NtDelayExecution(
@@ -41,6 +51,17 @@ NTSTATUS WINAPI NtOpenFile(
     PIO_STATUS_BLOCK IoStatusBlock, DWORD ShareAccess, DWORD OpenOptions
 );
 
+NTSTATUS WINAPI NtPulseEvent(
+    HANDLE EventHandle, PLONG PreviousState
+);
+
+NTSTATUS WINAPI NtQueryDirectoryFile(
+    HANDLE FileHandle, HANDLE Event, PIO_APC_ROUTINE ApcRoutine, PVOID ApcContext,
+    PIO_STATUS_BLOCK IoStatusBlock, PVOID FileInformation, DWORD Length, 
+    FILE_INFORMATION_CLASS FileInformationClass, BOOLEAN ReturnSingleEntry, 
+    PUNICODE_STRING FileMask, BOOLEAN RestartScan
+);
+
 NTSTATUS WINAPI NtQueryInformationFile(
     HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FileInformation, DWORD Length, 
     FILE_INFORMATION_CLASS FileInformationClass
@@ -57,6 +78,18 @@ NTSTATUS WINAPI NtReadFile(
     PDWORD Key
 );
 
+NTSTATUS WINAPI NtReleaseSemaphore(
+    HANDLE SemaphoreHandle, DWORD ReleaseCount, PDWORD PreviousCount
+);
+
+NTSTATUS WINAPI NtResumeThread(
+    HANDLE ThreadHandle, PDWORD SuspendCount
+);
+
+NTSTATUS WINAPI NtSetEvent(
+    HANDLE EventHandle, PLONG PreviousState
+);
+
 NTSTATUS WINAPI NtSetInformationFile(
     HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FileInformation, DWORD Length,
     FILE_INFORMATION_CLASS FileInformationClass
@@ -64,6 +97,10 @@ NTSTATUS WINAPI NtSetInformationFile(
 
 NTSTATUS WINAPI NtSetLdtEntries(
     DWORD Selector, LDT_ENTRY Entry, DWORD a, DWORD b, DWORD c
+);
+
+NTSTATUS WINAPI NtSuspendThread(
+    HANDLE ThreadHandle, PDWORD PreviousSuspendCount
 );
 
 DWORD WINAPI NtWaitForSingleObject(
@@ -75,6 +112,8 @@ NTSTATUS WINAPI NtWriteFile(
     PIO_STATUS_BLOCK IoStatusBlock, PVOID Buffer, DWORD Length, PLARGE_INTEGER ByteOffset,
     PDWORD Key
 );
+
+NTSTATUS WINAPI NtYieldExecution();
 
 NTSTATUS WINAPI RtlAnsiStringToUnicodeString(
     PUNICODE_STRING DestinationString, PANSI_STRING SourceString, 

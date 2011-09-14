@@ -13,13 +13,13 @@ namespace Dirtbox
 {
     // TODO: Initialize these structures
     OBJECT_TYPE ExEventObjectType;
-    DWORD HalDiskCachePartitionCount = 3;
+    DWORD HalDiskCachePartitionCount;
     ANSI_STRING HalDiskModelNumber;
     ANSI_STRING HalDiskSerialNumber;
     OBJECT_TYPE IoFileObjectType;
-    DWORD LaunchDataPage = 0;
+    DWORD LaunchDataPage;
     XBOX_HARDWARE_INFO XboxHardwareInfo;
-    PCHAR XboxHDKey = NULL;
+    CHAR XboxHDKey[16];
     XBOX_KRNL_VERSION XboxKrnlVersion;
     DWORD XeImageFileName;
     DWORD IdexChannelObject;

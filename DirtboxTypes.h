@@ -4,32 +4,32 @@
 #include <windows.h>
 
 enum EVENT_TYPE
-{ 
+{
     NotificationEvent = 0x0, 
     SynchronizationEvent = 0x1
 };
 
 enum FS_INFORMATION_CLASS
-{ 
-    FileFsVolumeInformation = 0x1,
-    FileFsLabelInformation = 0x2,
-    FileFsSizeInformation = 0x3,
-    FileFsDeviceInformation = 0x4,
-    FileFsAttributeInformation = 0x5,
-    FileFsControlInformation = 0x6,
-    FileFsFullSizeInformation = 0x7,
-    FileFsObjectIdInformation = 0x8,
+{
+    FileFsVolumeInformation = 0x1, 
+    FileFsLabelInformation = 0x2, 
+    FileFsSizeInformation = 0x3, 
+    FileFsDeviceInformation = 0x4, 
+    FileFsAttributeInformation = 0x5, 
+    FileFsControlInformation = 0x6, 
+    FileFsFullSizeInformation = 0x7, 
+    FileFsObjectIdInformation = 0x8, 
     FileFsMaximumInformation = 0x9
 };
 
 enum KINTERRUPT_MODE
 {
-    LevelSensitive = 0,
+    LevelSensitive = 0, 
     Latched = 1
 };
 
 enum KOBJECTS
-{ 
+{
     EventNotificationObject = 0x0, 
     EventSynchronizationObject = 0x1, 
     MutantObject = 0x2, 
@@ -40,12 +40,12 @@ enum KOBJECTS
     Spare1Object = 0x7, 
     TimerNotificationObject = 0x8, 
     TimerSynchronizationObject = 0x9, 
-    Spare2Object = 0xa, 
-    Spare3Object = 0xb, 
-    Spare4Object = 0xc, 
-    Spare5Object = 0xd, 
-    Spare6Object = 0xe, 
-    Spare7Object = 0xf, 
+    Spare2Object = 0xA, 
+    Spare3Object = 0xB, 
+    Spare4Object = 0xC, 
+    Spare5Object = 0xD, 
+    Spare6Object = 0xE, 
+    Spare7Object = 0xF, 
     Spare8Object = 0x10, 
     Spare9Object = 0x11, 
     ApcObject = 0x12, 
@@ -57,7 +57,7 @@ enum KOBJECTS
 };
 
 enum KWAIT_REASON
-{ 
+{
     Executive = 0x0, 
     FreePage = 0x1, 
     PageIn = 0x2, 
@@ -68,12 +68,12 @@ enum KWAIT_REASON
     WrExecutive = 0x7, 
     WrFreePage = 0x8, 
     WrPageIn = 0x9, 
-    WrPoolAllocation = 0xa, 
-    WrDelayExecution = 0xb, 
-    WrSuspended = 0xc, 
-    WrUserRequest = 0xd, 
-    WrEventPair = 0xe, 
-    WrQueue = 0xf, 
+    WrPoolAllocation = 0xA, 
+    WrDelayExecution = 0xB, 
+    WrSuspended = 0xC, 
+    WrUserRequest = 0xD, 
+    WrEventPair = 0xE, 
+    WrQueue = 0xF, 
     WrLpcReceive = 0x10, 
     WrLpcReply = 0x11, 
     WrVirtualMemory = 0x12, 
@@ -84,57 +84,57 @@ enum KWAIT_REASON
     Spare4 = 0x17, 
     Spare5 = 0x18, 
     Spare6 = 0x19, 
-    WrKernel = 0x1a, 
-    MaximumWaitReason = 0x1b, 
+    WrKernel = 0x1A, 
+    MaximumWaitReason = 0x1B
 };
 
 enum RETURN_FIRMWARE
 {
-	ReturnFirmwareHalt = 0,
-	ReturnFirmwareReboot = 1,
-	ReturnFirmwareQuickReboot = 2,
-	ReturnFirmwareHard = 3,
-	ReturnFirmwareFatal = 4,
+	ReturnFirmwareHalt = 0, 
+	ReturnFirmwareReboot = 1, 
+	ReturnFirmwareQuickReboot = 2, 
+	ReturnFirmwareHard = 3, 
+	ReturnFirmwareFatal = 4, 
 	ReturnFirmwareAll = 5
 };
 
 enum TIMER_TYPE
 {
-	NotificationTimer     = 0,
+	NotificationTimer     = 0, 
 	SynchronizationTimer  = 1
 };
 
 enum XC_VALUE_INDEX
-{ 
-    XC_TIMEZONE_BIAS = 0x0,
-    XC_TZ_STD_NAME = 0x1,
-    XC_TZ_STD_DATE = 0x2,
-    XC_TZ_STD_BIAS = 0x3,
-    XC_TZ_DLT_NAME = 0x4,
-    XC_TZ_DLT_DATE = 0x5,
-    XC_TZ_DLT_BIAS = 0x6,
-    XC_LANGUAGE = 0x7,
-    XC_VIDEO_FLAGS = 0x8,
-    XC_AUDIO_FLAGS = 0x9,
-    XC_PARENTAL_CONTROL_GAMES = 0xa,
-    XC_PARENTAL_CONTROL_PASSWORD = 0xb,
-    XC_PARENTAL_CONTROL_MOVIES = 0xc,
-    XC_ONLINE_IP_ADDRESS = 0xd,
-    XC_ONLINE_DNS_ADDRESS = 0xe,
-    XC_ONLINE_DEFAULT_GATEWAY_ADDRESS = 0xf,
-    XC_ONLINE_SUBNET_ADDRESS = 0x10,
-    XC_MISC_FLAGS = 0x11,
-    XC_DVD_REGION = 0x12,
-    XC_MAX_OS = 0xff,
-    XC_FACTORY_START_INDEX = 0x100,
-    XC_FACTORY_SERIAL_NUMBER = 0x100,
-    XC_FACTORY_ETHERNET_ADDR = 0x101,
-    XC_FACTORY_ONLINE_KEY = 0x102,
-    XC_FACTORY_AV_REGION = 0x103,
-    XC_FACTORY_GAME_REGION = 0x104,
-    XC_MAX_FACTORY = 0x1ff,
-    XC_ENCRYPTED_SECTION = 0xfffe,
-    XC_MAX_ALL = 0xffff
+{
+    XC_TIMEZONE_BIAS = 0x0, 
+    XC_TZ_STD_NAME = 0x1, 
+    XC_TZ_STD_DATE = 0x2, 
+    XC_TZ_STD_BIAS = 0x3, 
+    XC_TZ_DLT_NAME = 0x4, 
+    XC_TZ_DLT_DATE = 0x5, 
+    XC_TZ_DLT_BIAS = 0x6, 
+    XC_LANGUAGE = 0x7, 
+    XC_VIDEO_FLAGS = 0x8, 
+    XC_AUDIO_FLAGS = 0x9, 
+    XC_PARENTAL_CONTROL_GAMES = 0xA, 
+    XC_PARENTAL_CONTROL_PASSWORD = 0xB, 
+    XC_PARENTAL_CONTROL_MOVIES = 0xC, 
+    XC_ONLINE_IP_ADDRESS = 0xD, 
+    XC_ONLINE_DNS_ADDRESS = 0xE, 
+    XC_ONLINE_DEFAULT_GATEWAY_ADDRESS = 0xF, 
+    XC_ONLINE_SUBNET_ADDRESS = 0x10, 
+    XC_MISC_FLAGS = 0x11, 
+    XC_DVD_REGION = 0x12, 
+    XC_MAX_OS = 0xFF, 
+    XC_FACTORY_START_INDEX = 0x100, 
+    XC_FACTORY_SERIAL_NUMBER = 0x100, 
+    XC_FACTORY_ETHERNET_ADDR = 0x101, 
+    XC_FACTORY_ONLINE_KEY = 0x102, 
+    XC_FACTORY_AV_REGION = 0x103, 
+    XC_FACTORY_GAME_REGION = 0x104, 
+    XC_MAX_FACTORY = 0x1FF, 
+    XC_ENCRYPTED_SECTION = 0xFFFE, 
+    XC_MAX_ALL = 0xFFFF
 };
 
 // typedefs for primitive-sized types
@@ -229,7 +229,7 @@ struct XBOX_FLOATING_SAVE_AREA // 0x204
     WORD TagWord; // +0x4(0x2)
     WORD ErrorOpcode; // +0x6(0x2)
     DWORD ErrorOffset; // +0x8(0x4)
-    DWORD ErrorSelector; // +0xc(0x4)
+    DWORD ErrorSelector; // +0xC(0x4)
     DWORD DataOffset; // +0x10(0x4)
     DWORD DataSelector; // +0x14(0x4)
     DWORD MXCsr; // +0x18(0x4)
@@ -278,7 +278,7 @@ struct KAPC_STATE // 0x18
     BYTE ApcQueueable; // +0x17(0x1)
 };
 
-typedef struct KDEVICE_QUEUE // 0xc
+typedef struct KDEVICE_QUEUE // 0xC
 {
     SHORT Type; // +0x0(0x2)
     BYTE Size; // +0x2(0x1)
@@ -290,7 +290,7 @@ typedef struct KDEVICE_QUEUE_ENTRY // 0x10
 {
     LIST_ENTRY DeviceListEntry; // +0x0(0x8)
     DWORD SortKey; // +0x8(0x4)
-    BYTE Inserted; // +0xc(0x1)
+    BYTE Inserted; // +0xC(0x1)
 } PKDEVICE_QUEUE_ENTRY;
 
 struct KDPC // 0x1C
@@ -440,10 +440,10 @@ typedef struct ETHREAD // 0x140
         LIST_ENTRY ReaperListEntry; // +0x124(0x8)
         LIST_ENTRY ActiveTimerListHead; // +0x124(0x8)
     };
-    PVOID UniqueThread; // +0x12c(0x4)
+    PVOID UniqueThread; // +0x12C(0x4)
     PVOID StartAddress; // +0x130(0x4)
     LIST_ENTRY IrpList; // +0x134(0x8)
-    PVOID DebugData; // +0x13c(0x4)
+    PVOID DebugData; // +0x13C(0x4)
 } *PETHREAD;
 
 struct FILE_OBJECT // 0x48
@@ -460,10 +460,10 @@ struct FILE_OBJECT // 0x48
     BYTE Flags; // +0x3(0x1)
     PDEVICE_OBJECT DeviceObject; // +0x4(0x4)
     PVOID FsContext; // +0x8(0x4)
-    PVOID FsContext2; // +0xc(0x4)
+    PVOID FsContext2; // +0xC(0x4)
     LONG FinalStatus; // +0x10(0x4)
     LARGE_INTEGER CurrentByteOffset; // +0x14(0x8)
-    PFILE_OBJECT RelatedFileObject; // +0x1c(0x4)
+    PFILE_OBJECT RelatedFileObject; // +0x1C(0x4)
     PIO_COMPLETION_CONTEXT CompletionContext; // +0x20(0x4)
     LONG LockCount; // +0x24(0x4)
     KEVENT Lock; // +0x28(0x10)
@@ -495,9 +495,9 @@ struct IRP // 0x68
     IO_STATUS_BLOCK IoStatus; // +0x10(0x8)
     CHAR StackCount; // +0x18(0x1)
     CHAR CurrentLocation; // +0x19(0x1)
-    BYTE PendingReturned; // +0x1a(0x1)
-    BYTE Cancel; // +0x1b(0x1)
-    PIO_STATUS_BLOCK UserIosb; // +0x1c(0x4)
+    BYTE PendingReturned; // +0x1A(0x1)
+    BYTE Cancel; // +0x1B(0x1)
+    PIO_STATUS_BLOCK UserIosb; // +0x1C(0x4)
     PKEVENT UserEvent; // +0x20(0x4)
     union
     {
@@ -533,7 +533,7 @@ struct OBJECT_TYPE // 0x1c
     OB_ALLOCATE_METHOD AllocateProcedure; // +0x0(0x4)
     OB_FREE_METHOD FreeProcedure; // +0x4(0x4)
     OB_CLOSE_METHOD CloseProcedure; // +0x8(0x4)
-    OB_DELETE_METHOD DeleteProcedure; // +0xc(0x4)
+    OB_DELETE_METHOD DeleteProcedure; // +0xC(0x4)
     OB_PARSE_METHOD ParseProcedure; // +0x10(0x4)
     PVOID DefaultObject; // +0x14(0x4)
     DWORD PoolTag; // +0x18(0x4)
@@ -545,17 +545,17 @@ struct DEVICE_OBJECT // 0x48
     WORD Size; // +0x2(0x2)
     LONG ReferenceCount; // +0x4(0x4)
     PDRIVER_OBJECT DriverObject; // +0x8(0x4)
-    PDEVICE_OBJECT MountedOrSelfDevice; // +0xc(0x4)
+    PDEVICE_OBJECT MountedOrSelfDevice; // +0xC(0x4)
     PIRP CurrentIrp; // +0x10(0x4)
     DWORD Flags; // +0x14(0x4)
     PVOID DeviceExtension; // +0x18(0x4)
-    BYTE DeviceType; // +0x1c(0x1)
-    BYTE StartIoFlags; // +0x1d(0x1)
-    CHAR StackSize; // +0x1e(0x1)
-    BYTE DeletePending; // +0x1f(0x1)
+    BYTE DeviceType; // +0x1C(0x1)
+    BYTE StartIoFlags; // +0x1D(0x1)
+    CHAR StackSize; // +0x1E(0x1)
+    BYTE DeletePending; // +0x1F(0x1)
     DWORD SectorSize; // +0x20(0x4)
     DWORD AlignmentRequirement; // +0x24(0x4)
-    KDEVICE_QUEUE DeviceQueue; // +0x28(0xc)
+    KDEVICE_QUEUE DeviceQueue; // +0x28(0xC)
     KEVENT DeviceLock; // +0x34(0x10)
     DWORD StartIoKey; // +0x44(0x4)
 };
@@ -565,7 +565,7 @@ struct DRIVER_OBJECT // 0x44
     PDRIVER_STARTIO DriverStartIo; // +0x0(0x4)
     PDRIVER_DELETEDEVICE DriverDeleteDevice; // +0x4(0x4)
     PDRIVER_DISMOUNTVOLUME DriverDismountVolume; // +0x8(0x4)
-    PDRIVER_DISPATCH MajorFunction[0xe]; // +0xc(0x38)
+    PDRIVER_DISPATCH MajorFunction[0xe]; // +0xC(0x38)
 };
 
 typedef struct XBOX_CRITICAL_SECTION // 0x1C
@@ -604,11 +604,11 @@ typedef struct XBEIMAGE_SECTION // 0x38
     DWORD SectionFlags; // +0x0(0x4)
     DWORD VirtualAddress; // +0x4(0x4)
     DWORD VirtualSize; // +0x8(0x4)
-    DWORD PointerToRawData; // +0xc(0x4)
+    DWORD PointerToRawData; // +0xC(0x4)
     DWORD SizeOfRawData; // +0x10(0x4)
     PBYTE SectionName; // +0x14(0x4)
     DWORD SectionReferenceCount; // +0x18(0x4)
-    PWORD HeadSharedPageReferenceCount; // +0x1c(0x4)
+    PWORD HeadSharedPageReferenceCount; // +0x1C(0x4)
     PWORD TailSharedPageReferenceCount; // +0x20(0x4)
     BYTE SectionDigest[0x14]; // +0x24(0x14)
 } *PXBEIMAGE_SECTION;

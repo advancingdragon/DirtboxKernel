@@ -30,6 +30,59 @@ VOID WINAPI Dirtbox::Initialize()
     InitializeThreading();
     __writefsword(NT_TIB_USER_POINTER, GetFS());
     InitializeGraphics();
+    InitializeKernel();
+
+    DebugPrint("Initialize: All initialized successfully, starting app.");
+    SwapTibs();
+
+    PMAIN_ROUTINE MainRoutine = (PMAIN_ROUTINE)(XBE_ENTRY_POINT ^ XBE_ENTRY_POINT_KEY);
+    MainRoutine();
+
+    SwapTibs();
+    FreeTib();
+}
+
+VOID Dirtbox::InitializeKernel()
+{
+    // Initialize kernel globals
+    ExEventObjectType.AllocateProcedure = &ExAllocatePoolWithTag;
+    ExEventObjectType.FreeProcedure = &ExFreePool;
+    ExEventObjectType.CloseProcedure = NULL;
+    ExEventObjectType.DeleteProcedure = NULL;
+    ExEventObjectType.ParseProcedure = NULL;
+    ExEventObjectType.DefaultObject = NULL;
+    ExEventObjectType.PoolTag = 0x76657645;
+
+    HalDiskCachePartitionCount = 3;
+
+    HalDiskModelNumber.Length = 0;
+    HalDiskModelNumber.MaximumLength = 0;
+    HalDiskModelNumber.Buffer = NULL;
+
+    HalDiskSerialNumber.Length = 0;
+    HalDiskSerialNumber.MaximumLength = 0;
+    HalDiskSerialNumber.Buffer = NULL;
+
+    IoFileObjectType.AllocateProcedure = &ExAllocatePoolWithTag;
+    IoFileObjectType.FreeProcedure = &ExFreePool;
+    IoFileObjectType.CloseProcedure = NULL; // TODO
+    IoFileObjectType.DeleteProcedure = NULL; // TODO
+    IoFileObjectType.ParseProcedure = NULL; // TODO
+    IoFileObjectType.DefaultObject = (PVOID)0x38;
+    IoFileObjectType.PoolTag = 0x656C6946;
+
+    LaunchDataPage = 0;
+
+    XboxHardwareInfo.Flags = 0x202;
+    XboxHardwareInfo.GpuRevision = 0;
+    XboxHardwareInfo.McpRevision = 0;
+
+    memset(XboxHDKey, 0, 16);
+
+    XboxKrnlVersion.Major = 1;
+    XboxKrnlVersion.Minor = 0;
+    XboxKrnlVersion.Build = 0x154F;
+    XboxKrnlVersion.Qfe = 0x8001;
 
     // replace kernel import ordinals with pointer to our functions
     PDWORD KernelImageThunks = (PDWORD)(XBE_KERNEL_THUNK ^ XBE_KERNEL_THUNK_KEY);
@@ -288,7 +341,7 @@ VOID WINAPI Dirtbox::Initialize()
             KernelImageThunks[i] = (DWORD)&XboxHardwareInfo;
             break;
         case 323:
-            KernelImageThunks[i] = (DWORD)&XboxHDKey;
+            KernelImageThunks[i] = (DWORD)XboxHDKey; // Array is already pointer
             break;
         case 324:
             KernelImageThunks[i] = (DWORD)&XboxKrnlVersion;
@@ -324,15 +377,6 @@ VOID WINAPI Dirtbox::Initialize()
             FatalPrint("Initialize: Unimplemented kernel function %i.", Thunk);
         }
     }
-
-    DebugPrint("Initialize: All initialized successfully, starting app.");
-    SwapTibs();
-
-    PMAIN_ROUTINE MainRoutine = (PMAIN_ROUTINE)(XBE_ENTRY_POINT ^ XBE_ENTRY_POINT_KEY);
-    MainRoutine();
-
-    SwapTibs();
-    FreeTib();
 }
 
 // NOTE: Do we need to call fflush(stdout) here?

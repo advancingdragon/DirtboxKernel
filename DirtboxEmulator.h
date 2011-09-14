@@ -9,6 +9,7 @@ namespace Dirtbox
     typedef VOID (*PMAIN_ROUTINE)();
 
     VOID __declspec(dllexport) WINAPI Initialize();
+    VOID InitializeKernel();
     VOID DebugPrint(PSTR Format, ...);
     VOID FatalPrint(PSTR Format, ...);
 
