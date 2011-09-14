@@ -26,9 +26,6 @@ namespace Dirtbox
     // TODO: need to put critical sections around each of these
     // in case they are used in a multithreaded way
     PVOID AvpSavedDataAddress = (PVOID)0;
-    /*
-    std::map<PXBOX_CRITICAL_SECTION, RTL_CRITICAL_SECTION> CriticalSections;
-    */
 
     BOOLEAN IsValidDosPath(PANSI_STRING String);
     NTSTATUS ConvertObjectAttributes(
@@ -171,6 +168,13 @@ NTSTATUS WINAPI Dirtbox::DbgPrint(
     return STATUS_SUCCESS;
 }
 
+PVOID WINAPI Dirtbox::ExAllocatePool(
+    DWORD NumberOfBytes
+)
+{
+    ExAllocatePoolWithTag(NumberOfBytes, 0x656E6F4E);
+}
+
 PVOID WINAPI Dirtbox::ExAllocatePoolWithTag(
     DWORD NumberOfBytes, DWORD Tag
 )
@@ -189,7 +193,7 @@ VOID WINAPI Dirtbox::ExFreePool(
 {
     SwapTibs();
 
-    DebugPrint("ExAllocatePoolWithTag: 0x%08x", Pool);
+    DebugPrint("ExFreePool: 0x%08x", Pool);
 
     SwapTibs();
 }
@@ -373,7 +377,7 @@ VOID WINAPI Dirtbox::IoStartNextPacket(
 {
     SwapTibs();
 
-    DebugPrint("IoInvalidDeviceRequest: 0x%08x", DeviceObject);
+    DebugPrint("IoStartNextPacket: 0x%08x", DeviceObject);
 
     SwapTibs();
 }
@@ -384,7 +388,7 @@ VOID WINAPI Dirtbox::IoStartPacket(
 {
     SwapTibs();
 
-    DebugPrint("IoInvalidDeviceRequest: 0x%08x 0x%08x 0x%08x", DeviceObject, Irp, Key);
+    DebugPrint("IoStartPacket: 0x%08x 0x%08x 0x%08x", DeviceObject, Irp, Key);
 
     SwapTibs();
 }
@@ -1289,13 +1293,6 @@ NTSTATUS WINAPI Dirtbox::RtlEnterCriticalSection(
 
     DebugPrint("RtlEnterCriticalSection: 0x%08x", CriticalSection);
 
-    /*
-    // Not sure if it can work this way, but oh well.
-    if (CriticalSections.count(CriticalSection) == 0)
-        ::RtlInitializeCriticalSection(&CriticalSections[CriticalSection]);
-    NTSTATUS Res = ::RtlEnterCriticalSection(&CriticalSections[CriticalSection]);
-    */
-
     // has critical section already been acquired yet?
     if (InterlockedIncrement(&CriticalSection->LockCount) == 0)
     {
@@ -1356,11 +1353,6 @@ VOID WINAPI Dirtbox::RtlInitializeCriticalSection(
 
     DebugPrint("RtlInitializeCriticalSection: 0x%08x", CriticalSection);
 
-    /*
-    // Not sure if it can work this way, but oh well.
-    ::RtlInitializeCriticalSection(&CriticalSections[CriticalSection]);
-    */
-
     CriticalSection->Synchronization.Type = EventSynchronizationObject;
     CriticalSection->Synchronization.Size = sizeof(DISPATCHER_HEADER)/4;
     CriticalSection->Synchronization.SignalState = 0;
@@ -1383,11 +1375,6 @@ VOID WINAPI Dirtbox::RtlLeaveCriticalSection(
     SwapTibs();
 
     DebugPrint("RtlLeaveCriticalSection: 0x%08x", CriticalSection);
-
-    /*
-    // Not sure if it can work this way, but oh well.
-    ::RtlLeaveCriticalSection(&CriticalSections[CriticalSection]);
-    */
 
     // is this the last release of critical section in this thread?
     CriticalSection->RecursionCount--;

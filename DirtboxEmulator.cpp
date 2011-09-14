@@ -53,6 +53,9 @@ VOID WINAPI Dirtbox::Initialize()
         case 8:
             KernelImageThunks[i] = (DWORD)&DbgPrint;
             break;
+        case 14:
+            KernelImageThunks[i] = (DWORD)&ExAllocatePool;
+            break;
         case 15:
             KernelImageThunks[i] = (DWORD)&ExAllocatePoolWithTag;
             break;

@@ -21,6 +21,9 @@ namespace Dirtbox
         PSTR Output
     );
 
+    PVOID WINAPI ExAllocatePool(
+        DWORD NumberOfBytes
+    );
     PVOID WINAPI ExAllocatePoolWithTag(
         DWORD NumberOfBytes, DWORD Tag
     );
