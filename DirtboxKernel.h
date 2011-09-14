@@ -35,8 +35,8 @@ namespace Dirtbox
         PVOID PoolBlock
     );
     NTSTATUS WINAPI ExQueryNonVolatileSetting(
-        DWORD ValueIndex, PDWORD Type, PBYTE Value, SIZE_T ValueLength,
-        PSIZE_T ResultLength
+        XC_VALUE_INDEX ValueIndex, PDWORD Type, PBYTE Value, DWORD ValueLength, 
+        PDWORD ResultLength
     );
 
     extern DWORD HalDiskCachePartitionCount;

@@ -5,6 +5,7 @@
 #include "DirtboxKernel.h"
 #include "Native.h"
 
+#include <malloc.h>
 #include <process.h>
 
 
@@ -172,7 +173,7 @@ PVOID WINAPI Dirtbox::ExAllocatePool(
     DWORD NumberOfBytes
 )
 {
-    ExAllocatePoolWithTag(NumberOfBytes, 0x656E6F4E);
+    return ExAllocatePoolWithTag(NumberOfBytes, 0x656E6F4E); // "None"
 }
 
 PVOID WINAPI Dirtbox::ExAllocatePoolWithTag(
@@ -183,8 +184,11 @@ PVOID WINAPI Dirtbox::ExAllocatePoolWithTag(
 
     DebugPrint("ExAllocatePoolWithTag: 0x%x 0x%x", NumberOfBytes, Tag);
 
+    // Don't see how Tag could be used
+    PVOID Res = malloc(NumberOfBytes);
+
     SwapTibs();
-    return NULL;
+    return Res;
 }
 
 VOID WINAPI Dirtbox::ExFreePool(
@@ -194,6 +198,8 @@ VOID WINAPI Dirtbox::ExFreePool(
     SwapTibs();
 
     DebugPrint("ExFreePool: 0x%08x", Pool);
+
+    free(Pool);
 
     SwapTibs();
 }
@@ -206,32 +212,46 @@ DWORD WINAPI Dirtbox::ExQueryPoolBlockSize(
 
     DebugPrint("ExQueryPoolBlockSize: 0x%08x", PoolBlock);
 
+    DWORD Res = (DWORD)_msize(PoolBlock);
+
     SwapTibs();
-    return 0;
+    return Res;
 }
 
 NTSTATUS WINAPI Dirtbox::ExQueryNonVolatileSetting(
-    DWORD ValueIndex, PDWORD Type, PBYTE Value, SIZE_T ValueLength,
-    PSIZE_T ResultLength
+    XC_VALUE_INDEX ValueIndex, PDWORD Type, PBYTE Value, DWORD ValueLength, 
+    PDWORD ResultLength
 )
 {
     SwapTibs();
 
     DebugPrint("ExQueryNonVolatileSetting: %i ...", ValueIndex);
 
-    SwapTibs();
+    NTSTATUS Res = STATUS_SUCCESS;
 
     switch(ValueIndex)
     {
-    case 7: // Language
-        *(DWORD *)Value = 1;
-        return STATUS_SUCCESS;
-    case 10: // Parental control setting
-        *(DWORD *)Value = 0;
-        return STATUS_SUCCESS;
+    case XC_LANGUAGE:
+        *(DWORD *)Value = 1; // English
+        break;
+    case XC_AUDIO_FLAGS:
+        *(DWORD *)Value = 0; // Stereo, no AC3, no DTS
+        break;
+    case XC_PARENTAL_CONTROL_GAMES:
+        *(DWORD *)Value = 0; // No restrictions
+        break;
+    case XC_MISC_FLAGS:
+        *(DWORD *)Value = 0; // No automatic power down
+        break;
+    case XC_MAX_OS:
+        Res = STATUS_UNSUCCESSFUL;
+        break;
     default:
-        return STATUS_UNSUCCESSFUL;
+        Res = STATUS_UNSUCCESSFUL;
     }
+
+    SwapTibs();
+    return Res;
 }
 
 DWORD WINAPI Dirtbox::HalGetInterruptVector(
