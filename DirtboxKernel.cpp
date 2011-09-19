@@ -796,6 +796,8 @@ NTSTATUS WINAPI Dirtbox::KeWaitForMultipleObjects(
         Count, NtObject, WaitType, Alertable, Timeout
     );
 
+    free(NtObject);
+
     SwapTibs();
     return Res;
 }
