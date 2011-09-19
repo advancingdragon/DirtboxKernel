@@ -612,6 +612,19 @@ typedef struct XBOX_OBJECT_ATTRIBUTES // 0xC
         DWORD Attributes; // +0x8(0x4)
 } *PXBOX_OBJECT_ATTRIBUTES;
 
+typedef struct MM_STATISTICS // 0x24
+{
+    DWORD Length; // +0x0(0x4)
+    DWORD TotalPhysicalPages; // +0x4(0x4)
+    DWORD AvailablePages; // +0x8(0x4)
+    DWORD VirtualMemoryBytesCommitted; // +0xC(0x4)
+    DWORD VirtualMemoryBytesReserved; // +0x10(0x4)
+    DWORD CachePagesCommitted; // +0x14(0x4)
+    DWORD PoolPagesCommitted; // +0x18(0x4)
+    DWORD StackPagesCommitted; // +0x1C(0x4)
+    DWORD ImagePagesCommitted; // +0x20(0x4)
+} *PMM_STATISTICS;
+
 struct XBOX_HARDWARE_INFO // 0x8
 {
     DWORD Flags; // +0x0(0x4)

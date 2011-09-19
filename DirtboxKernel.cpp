@@ -15,6 +15,7 @@ namespace Dirtbox
     OBJECT_TYPE IoFileObjectType;
     KSYSTEM_TIME KeTickCount;
     DWORD LaunchDataPage;
+    OBJECT_TYPE PsThreadObjectType;
     XBOX_HARDWARE_INFO XboxHardwareInfo;
     CHAR XboxHDKey[16];
     XBOX_KRNL_VERSION XboxKrnlVersion;
@@ -925,6 +926,41 @@ VOID WINAPI Dirtbox::MmFreeContiguousMemory(
     SwapTibs();
 }
 
+DWORD WINAPI Dirtbox::MmGetPhysicalAddress(
+    PVOID BaseAddress
+)
+{
+    SwapTibs();
+
+    DebugPrint("MmGetPhysicalAddress: 0x%08x", BaseAddress);
+
+    SwapTibs();
+    return (DWORD)BaseAddress;
+}
+
+VOID WINAPI Dirtbox::MmLockUnlockBufferPages(
+    PVOID BaseAddress, DWORD NumberOfBytes, BOOLEAN UnlockPages
+)
+{
+    SwapTibs();
+
+    DebugPrint("MmLockUnlockBufferPages: 0x%08x 0x%x %i", 
+        BaseAddress, NumberOfBytes, UnlockPages);
+
+    SwapTibs();
+}
+
+VOID WINAPI Dirtbox::MmLockUnlockPhysicalPage(
+    DWORD PhysicalAddress, BOOLEAN UnlockPage
+)
+{
+    SwapTibs();
+
+    DebugPrint("MmLockUnlockBufferPages: 0x%08x %i", PhysicalAddress, UnlockPage);
+
+    SwapTibs();
+}
+
 VOID WINAPI Dirtbox::MmPersistContiguousMemory(
     PVOID BaseAddress, DWORD NumberOfBytes, BOOLEAN Persist
 )
@@ -967,6 +1003,18 @@ DWORD WINAPI Dirtbox::MmQueryAllocationSize(
 
     SwapTibs();
     return MemInfo.RegionSize;
+}
+
+NTSTATUS WINAPI Dirtbox::MmQueryStatistics(
+    PMM_STATISTICS MemoryStatistics
+)
+{
+    SwapTibs();
+
+    DebugPrint("MmQueryStatistics: 0x%08x", MemoryStatistics);
+
+    SwapTibs();
+    return STATUS_UNSUCCESSFUL;
 }
 
 DWORD WINAPI Dirtbox::MmSetAddressProtect(

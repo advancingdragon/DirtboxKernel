@@ -194,6 +194,15 @@ namespace Dirtbox
     VOID WINAPI MmFreeContiguousMemory(
         PVOID BaseAddress
     );
+    DWORD WINAPI MmGetPhysicalAddress(
+        PVOID BaseAddress
+    );
+    VOID WINAPI MmLockUnlockBufferPages(
+        PVOID BaseAddress, DWORD NumberOfBytes, BOOLEAN UnlockPages
+    );
+    VOID WINAPI MmLockUnlockPhysicalPage(
+        DWORD PhysicalAddress, BOOLEAN UnlockPage
+    );
     VOID WINAPI MmPersistContiguousMemory(
         PVOID BaseAddress, DWORD NumberOfBytes, BOOLEAN Persist
     );
@@ -202,6 +211,9 @@ namespace Dirtbox
     );
     DWORD WINAPI MmQueryAllocationSize(
         PVOID BaseAddress
+    );
+    NTSTATUS WINAPI MmQueryStatistics(
+        PMM_STATISTICS MemoryStatistics
     );
     DWORD WINAPI MmSetAddressProtect(
         PVOID BaseAddress, DWORD NumberOfBytes, DWORD NewProtect
@@ -312,6 +324,7 @@ namespace Dirtbox
     VOID WINAPI PsTerminateSystemThread(
         NTSTATUS ExitStatus
     );
+    extern OBJECT_TYPE PsThreadObjectType;
 
     SIZE_T WINAPI RtlCompareMemoryUlong(
         PVOID Source, SIZE_T Length, DWORD Pattern

@@ -74,6 +74,14 @@ VOID Dirtbox::InitializeKernel()
 
     LaunchDataPage = 0;
 
+    PsThreadObjectType.AllocateProcedure = &ExAllocatePoolWithTag;
+    PsThreadObjectType.FreeProcedure = &ExFreePool;
+    PsThreadObjectType.CloseProcedure = NULL;
+    PsThreadObjectType.DeleteProcedure = NULL;
+    PsThreadObjectType.ParseProcedure = NULL;
+    PsThreadObjectType.DefaultObject = NULL;
+    PsThreadObjectType.PoolTag = 0x65726854;
+
     XboxHardwareInfo.Flags = 0x202;
     XboxHardwareInfo.GpuRevision = 0;
     XboxHardwareInfo.McpRevision = 0;
@@ -281,6 +289,15 @@ VOID Dirtbox::InitializeKernel()
         case 171:
             KernelImageThunks[i] = (DWORD)&MmFreeContiguousMemory;
             break;
+        case 173:
+            KernelImageThunks[i] = (DWORD)&MmGetPhysicalAddress;
+            break;
+        case 175:
+            KernelImageThunks[i] = (DWORD)&MmLockUnlockBufferPages;
+            break;
+        case 176:
+            KernelImageThunks[i] = (DWORD)&MmLockUnlockPhysicalPage;
+            break;
         case 178:
             KernelImageThunks[i] = (DWORD)&MmPersistContiguousMemory;
             break;
@@ -289,6 +306,9 @@ VOID Dirtbox::InitializeKernel()
             break;
         case 180:
             KernelImageThunks[i] = (DWORD)&MmQueryAllocationSize;
+            break;
+        case 181:
+            KernelImageThunks[i] = (DWORD)&MmQueryStatistics;
             break;
         case 182:
             KernelImageThunks[i] = (DWORD)&MmSetAddressProtect;
@@ -379,6 +399,9 @@ VOID Dirtbox::InitializeKernel()
             break;
         case 258:
             KernelImageThunks[i] = (DWORD)&PsTerminateSystemThread;
+            break;
+        case 259:
+            KernelImageThunks[i] = (DWORD)&PsThreadObjectType;
             break;
         case 269:
             KernelImageThunks[i] = (DWORD)&RtlCompareMemoryUlong;
