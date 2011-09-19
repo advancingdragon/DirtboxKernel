@@ -204,6 +204,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\DirtboxSync.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\DirtboxThreading.cpp"
 				>
 			</File>

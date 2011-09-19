@@ -1,6 +1,7 @@
 #ifndef _DIRTBOX_EMULATOR_H_
 #define _DIRTBOX_EMULATOR_H_
 
+#include "DirtboxDefines.h"
 #include "DirtboxTypes.h"
 
 namespace Dirtbox
@@ -19,6 +20,11 @@ namespace Dirtbox
     VOID InitializeException();
     VOID InitializeDummyKernel();
     VOID InitializeDrives();
+    BOOLEAN IsValidDosPath(PANSI_STRING String);
+    NTSTATUS ConvertObjectAttributes(
+        POBJECT_ATTRIBUTES Destination, PUNICODE_STRING ObjectName, PWSTR Buffer, 
+        PXBOX_OBJECT_ATTRIBUTES Source
+    );
 
     // DirtboxThreading.cpp
     typedef struct SHIM_CONTEXT
@@ -44,6 +50,9 @@ namespace Dirtbox
 
     // DirtboxGraphics.cpp
     VOID InitializeGraphics();
+
+    // DirtboxSync.cpp
+    HANDLE GetDirtObject(PVOID Object);
 }
 
 #endif

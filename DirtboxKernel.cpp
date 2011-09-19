@@ -1,22 +1,19 @@
 // Emulated xboxkrnl.exe functions
 
-#include "DirtboxDefines.h"
 #include "DirtboxEmulator.h"
 #include "DirtboxKernel.h"
 #include "Native.h"
-
 #include <malloc.h>
 #include <process.h>
 
-
 namespace Dirtbox
 {
-    // TODO: Initialize these structures
     OBJECT_TYPE ExEventObjectType;
     DWORD HalDiskCachePartitionCount;
     ANSI_STRING HalDiskModelNumber;
     ANSI_STRING HalDiskSerialNumber;
     OBJECT_TYPE IoFileObjectType;
+    KSYSTEM_TIME KeTickCount;
     DWORD LaunchDataPage;
     XBOX_HARDWARE_INFO XboxHardwareInfo;
     CHAR XboxHDKey[16];
@@ -24,86 +21,8 @@ namespace Dirtbox
     DWORD XeImageFileName;
     DWORD IdexChannelObject;
 
-    // TODO: need to put critical sections around each of these
-    // in case they are used in a multithreaded way
     PVOID AvpSavedDataAddress = (PVOID)0;
-
-    BOOLEAN IsValidDosPath(PANSI_STRING String);
-    NTSTATUS ConvertObjectAttributes(
-        POBJECT_ATTRIBUTES Destination, PUNICODE_STRING ObjectName, PWSTR Buffer, 
-        PXBOX_OBJECT_ATTRIBUTES Source
-    );
 }
-
-
-BOOLEAN Dirtbox::IsValidDosPath(PANSI_STRING String)
-{
-    return String->Length >= 3 &&
-        strpbrk(String->Buffer, "CDTUZcdtuz") == String->Buffer &&
-        strncmp(String->Buffer + 1, ":\\", 2) == 0;
-}
-
-NTSTATUS Dirtbox::ConvertObjectAttributes(
-    POBJECT_ATTRIBUTES Destination, PUNICODE_STRING ObjectName, PWSTR Buffer, 
-    PXBOX_OBJECT_ATTRIBUTES Source
-)
-{
-    if (Source->RootDirectory == OB_DOS_DEVICES)
-    {
-        // validate correctness of path
-        if (!IsValidDosPath(Source->ObjectName))
-        {
-            DebugPrint("ConvertObjectAttributes: Invalid path name.");
-            return STATUS_OBJECT_NAME_INVALID;
-        }
-
-        // build the new path
-        RtlInitEmptyUnicodeString(ObjectName, Buffer, MAX_PATH);
-        RtlAnsiStringToUnicodeString(ObjectName, Source->ObjectName, FALSE);
-
-        // ':' is not an allowed char in names, so replace it with _
-        ObjectName->Buffer[1] = L'_';
-
-        /*
-        // D:\ refers to current directory
-        if (ObjectName->Buffer[0] == L'D' || ObjectName->Buffer[0] == L'd')
-        {
-            // remove D:\ in the beginning of string
-            ObjectName->Length -= 3;
-            for (SHORT i = 0; i < ObjectName->Length; i++)
-                ObjectName->Buffer[i] = ObjectName->Buffer[i + 3];
-            ObjectName->Buffer[ObjectName->Length + 1] = L'\0';
-        }
-        else
-        {
-            // ':' is not an allowed char in names, so replace it with _
-            ObjectName->Buffer[1] = L'_';
-        }
-        */
-    }
-    else if (Source->RootDirectory == NULL)
-    {
-        // build the new path
-        RtlInitEmptyUnicodeString(ObjectName, Buffer, MAX_PATH);
-        RtlAppendUnicodeToString(ObjectName, L"Dummy");
-    }
-    else
-    {
-        DebugPrint("ConvertObjectAttributes: Invalid root directory.");
-        return STATUS_UNSUCCESSFUL;
-    }
-
-    // Convert XBOX_OBJECT_ATTRIBUTES to Windows NT OBJECT_ATTRIBUTES
-    Destination->Length = sizeof(OBJECT_ATTRIBUTES);
-    Destination->ObjectName = ObjectName;
-    Destination->Attributes = Source->Attributes;
-    Destination->RootDirectory = CurrentDirectory;
-    Destination->SecurityDescriptor = NULL;
-    Destination->SecurityQualityOfService = NULL;
-
-    return STATUS_SUCCESS;
-}
-
 
 PVOID WINAPI Dirtbox::AvGetSavedDataAddress()
 {
@@ -473,8 +392,21 @@ VOID WINAPI Dirtbox::KeBugCheck(
 {
     SwapTibs();
 
-    FatalPrint("KeBugCheck: %i", 
-        BugCheckCode);
+    FatalPrint("KeBugCheck: %i", BugCheckCode);
+}
+
+BOOLEAN WINAPI Dirtbox::KeCancelTimer(
+    PKTIMER Timer
+)
+{
+    SwapTibs();
+
+    DebugPrint("KeCancelTimer: 0x%08x", Timer);
+
+    NTSTATUS Res = ::NtCancelTimer(GetDirtObject(Timer), NULL);
+
+    SwapTibs();
+    return NT_SUCCESS(Res);
 }
 
 BOOLEAN WINAPI Dirtbox::KeConnectInterrupt(
@@ -483,10 +415,7 @@ BOOLEAN WINAPI Dirtbox::KeConnectInterrupt(
 {
     SwapTibs();
 
-    DebugPrint("KeConnectInterrupt: %i %i %i %i %i %i",
-        Interrupt->BusInterruptLevel, Interrupt->Irql, 
-        Interrupt->Connected, Interrupt->ShareVector, 
-        Interrupt->Mode, Interrupt->ServiceCount);
+    DebugPrint("KeConnectInterrupt: 0x%08x", Interrupt);
 
     if (Interrupt->Connected)
     {
@@ -494,7 +423,7 @@ BOOLEAN WINAPI Dirtbox::KeConnectInterrupt(
         return FALSE;
     }
 
-    Interrupt->Connected = 1;
+    Interrupt->Connected = TRUE;
 
     SwapTibs();
     return TRUE;
@@ -519,11 +448,7 @@ BOOLEAN WINAPI Dirtbox::KeDisconnectInterrupt(
 )
 {
     SwapTibs();
-    DebugPrint("KeDisconnectInterrupt: 0x%08x 0x%08x %i %i %i %i %i %i",
-        Interrupt->ServiceRoutine, Interrupt->ServiceContext,
-        Interrupt->BusInterruptLevel, Interrupt->Irql, 
-        Interrupt->Connected, Interrupt->ShareVector, 
-        Interrupt->Mode, Interrupt->ServiceCount);
+    DebugPrint("KeDisconnectInterrupt: 0x%08x", Interrupt);
 
     if (!Interrupt->Connected)
     {
@@ -531,7 +456,7 @@ BOOLEAN WINAPI Dirtbox::KeDisconnectInterrupt(
         return FALSE;
     }
 
-    Interrupt->Connected = 0;
+    Interrupt->Connected = FALSE;
 
     SwapTibs();
     return TRUE;
@@ -548,7 +473,24 @@ VOID WINAPI Dirtbox::KeInitializeDpc(
     Dpc->DeferredRoutine = DeferredRoutine;
     Dpc->Type = DpcObject;
     Dpc->DeferredContext = DeferredContext;
-    Dpc->Inserted = 0;
+    Dpc->Inserted = FALSE;
+
+    SwapTibs();
+}
+
+VOID WINAPI Dirtbox::KeInitializeEvent(
+    PKEVENT Event, EVENT_TYPE Type, BOOLEAN State
+)
+{
+    SwapTibs();
+
+    DebugPrint("KeInitializeEvent: 0x%08x %i %i", Event, Type, State);
+
+    Event->Header.Type = Type;
+    Event->Header.SignalState = State;
+    Event->Header.Size = sizeof(KEVENT)/4;
+    Event->Header.WaitListHead.Blink = &Event->Header.WaitListHead;
+    Event->Header.WaitListHead.Flink = &Event->Header.WaitListHead;
 
     SwapTibs();
 }
@@ -560,15 +502,15 @@ VOID WINAPI Dirtbox::KeInitializeInterrupt(
 {
     SwapTibs();
 
-    DebugPrint("KeInitializeInterrupt: 0x%08x 0x%08x %i %i %i %i",
-        ServiceRoutine, ServiceContext, Vector, Irql, InterruptMode, ShareVector);
+    DebugPrint("KeInitializeInterrupt: 0x%08x 0x%08x 0x%08x %i %i %i %i", 
+        Interrupt, ServiceRoutine, ServiceContext, Vector, Irql, InterruptMode, ShareVector);
 
     Interrupt->ServiceRoutine = ServiceRoutine;
     Interrupt->Irql = Irql;
     Interrupt->ServiceContext = ServiceContext;
     Interrupt->BusInterruptLevel = Vector - 48;
     Interrupt->Mode = InterruptMode;
-    Interrupt->Connected = 0;
+    Interrupt->Connected = FALSE;
 
     SwapTibs();
 }
@@ -579,10 +521,10 @@ VOID WINAPI Dirtbox::KeInitializeTimerEx(
 {
     SwapTibs();
 
-    DebugPrint("KeInitializeTimerEx: %i %i 0x%08x", Timer, Type);
+    DebugPrint("KeInitializeTimerEx: 0x%08x %i", Timer, Type);
 
     Timer->Header.Type = TimerNotificationObject + Type;
-    Timer->Header.Inserted = 0;
+    Timer->Header.Inserted = FALSE;
     Timer->Header.Size = sizeof(KTIMER)/4;
     Timer->Header.SignalState = 0;
     Timer->Header.WaitListHead.Blink = &Timer->Header.WaitListHead;
@@ -599,8 +541,7 @@ BOOLEAN WINAPI Dirtbox::KeInsertQueueDpc(
 {
     SwapTibs();
 
-    DebugPrint("KeInsertQueueDpc: %i %i 0x%08x 0x%08x",
-        Dpc->Type, Dpc->Inserted, SystemArgument1, SystemArgument2);
+    DebugPrint("KeInsertQueueDpc: 0x%08x 0x%08x 0x%08x", Dpc, SystemArgument1, SystemArgument2);
 
     if (Dpc->Inserted)
     {
@@ -610,10 +551,40 @@ BOOLEAN WINAPI Dirtbox::KeInsertQueueDpc(
 
     Dpc->SystemArgument1 = SystemArgument1;
     Dpc->SystemArgument2 = SystemArgument2;
-    Dpc->Inserted = 1;
+    Dpc->Inserted = TRUE;
 
     SwapTibs();
     return TRUE;
+}
+
+KPRIORITY WINAPI Dirtbox::KeQueryBasePriorityThread(
+    PKTHREAD Thread
+)
+{
+    SwapTibs();
+
+    DebugPrint("KeQueryBasePriorityThread: 0x%08x", Thread);
+
+    // To get the "real" value, use NtQueryInformationThread
+
+    KPRIORITY Res = Thread->BasePriority - 8; // 8 == System process's base priority
+    if (Thread->Saturation)
+        Res = Thread->Saturation * 16;
+
+    SwapTibs();
+    return Res;
+}
+
+DWORDLONG WINAPI Dirtbox::KeQueryInterruptTime()
+{
+    SwapTibs();
+
+    DebugPrint("KeQueryInterruptTime");
+
+    // Do we even need to implement this?
+
+    SwapTibs();
+    return 0L;
 }
 
 VOID WINAPI Dirtbox::KeQuerySystemTime(
@@ -624,9 +595,7 @@ VOID WINAPI Dirtbox::KeQuerySystemTime(
 
     DebugPrint("KeQuerySystemTime: 0x%08x", CurrentTime);
 
-    SYSTEMTIME SystemTime;
-    GetSystemTime(&SystemTime);
-    SystemTimeToFileTime(&SystemTime, (FILETIME*)CurrentTime);
+    NtQuerySystemTime(CurrentTime);
 
     SwapTibs();
 }
@@ -651,62 +620,199 @@ KIRQL WINAPI Dirtbox::KeRaiseIrqlToDpcLevel()
     return OldIrql;
 }
 
+BOOLEAN WINAPI Dirtbox::KeRemoveQueueDpc(
+    PKDPC Dpc
+)
+{
+    SwapTibs();
+
+    DebugPrint("KeRemoveQueueDpc: 0x%08x", Dpc);
+
+    if (!Dpc->Inserted)
+    {
+        SwapTibs();
+        return FALSE;
+    }
+
+    // TODO the rest
+    Dpc->Inserted = FALSE;
+
+    SwapTibs();
+    return TRUE;
+}
+
+NTSTATUS WINAPI Dirtbox::KeRestoreFloatingPointState(
+    PKFLOATING_SAVE PublicFloatSave
+)
+{
+    SwapTibs();
+
+    DebugPrint("KeRestoreFloatingPointSave: 0x%08x", PublicFloatSave);
+
+    // TODO
+
+    SwapTibs();
+    return STATUS_UNSUCCESSFUL;
+
+}
+
+NTSTATUS WINAPI Dirtbox::KeSaveFloatingPointState(
+    PKFLOATING_SAVE PublicFloatSave
+)
+{
+    SwapTibs();
+
+    DebugPrint("KeRestoreFloatingPointSave: 0x%08x", PublicFloatSave);
+
+    // TODO
+
+    SwapTibs();
+    return STATUS_UNSUCCESSFUL;
+}
+
+LONG WINAPI Dirtbox::KeSetBasePriorityThread(
+    PKTHREAD Thread, LONG Increment
+)
+{
+    SwapTibs();
+
+    DebugPrint("KeSetBasePriorityThread: 0x%08x %i", Thread, Increment);
+
+    // To set the "real" value, use NtSetInformationThread
+
+    // TODO
+    KPRIORITY Res = Thread->BasePriority - 8; // 8 == System process's base priority
+    if (Thread->Saturation)
+        Res = Thread->Saturation * 16;
+
+    SwapTibs();
+    return Res;
+}
+
+BOOLEAN WINAPI Dirtbox::KeSetDisableBoostThread(
+    PKTHREAD Thread, BOOLEAN Disable
+)
+{
+    SwapTibs();
+
+    DebugPrint("KeSetDisableBoostThread: 0x%08x", Thread, Disable);
+
+    BOOLEAN Res = Thread->DisableBoost;
+    Thread->DisableBoost = Disable;
+
+    SwapTibs();
+    return Res;
+}
+
 BOOLEAN WINAPI Dirtbox::KeSetEvent(
-    PKEVENT Event, LONG Increment, CHAR Wait
+    PKEVENT Event, LONG Increment, BOOLEAN Wait
 )
 {
     SwapTibs();
 
     DebugPrint("KeSetEvent: 0x%08x %i %i", Event, Increment, Wait);
 
-    // thinking of how to implement Ke events with the Windows API event objects.
-    // maybe a hash table of addresses of KEVENT objects?
     if (Event->Header.Type != 0)
         FatalPrint("KeSetEvent: Events other than Notification Events not implemented.");
 
     if (Event->Header.WaitListHead.Flink != &Event->Header.WaitListHead)
         FatalPrint("KeSetEvent: Events with more than two threads not supported.");
 
-    Event->Header.SignalState = 1;
+    // Event->Header.SignalState = 1;
+    NTSTATUS Res = ::NtSetEvent(GetDirtObject(Event), NULL);
 
     SwapTibs();
-    return TRUE;
+    return NT_SUCCESS(Res);
 }
 
 BOOLEAN WINAPI Dirtbox::KeSetTimer(
     PKTIMER Timer, LARGE_INTEGER DueTime, PKDPC Dpc
 )
 {
+    return KeSetTimerEx(Timer, DueTime, 0, Dpc);
+}
+
+BOOLEAN WINAPI Dirtbox::KeSetTimerEx(
+    PKTIMER Timer, LARGE_INTEGER DueTime, LONG Period, PKDPC Dpc
+)
+{
     SwapTibs();
 
-    DebugPrint("KeSetTimer: 0x%08x 0x%08x 0x%08x",
-        Timer, DueTime, Dpc);
+    DebugPrint("KeSetTimerEx: 0x%08x 0x%08x %i 0x%08x", Timer, DueTime, Period, Dpc);
 
-    // Don't really need to implement it yet, only used in shutdown
-    Timer->Header.SignalState = 0;
-    Timer->Period = 0;
-    Timer->Dpc = Dpc;
+    // TODO: Handle APCs/DPCs
+    NTSTATUS Res = ::NtSetTimer(
+        GetDirtObject(Timer), &DueTime, NULL, NULL, FALSE, Period, NULL
+    );
+
+    SwapTibs();
+    return NT_SUCCESS(Res);
+}
+
+VOID WINAPI Dirtbox::KeStallExecutionProcessor(
+    DWORD MicroSeconds
+)
+{
+    SwapTibs();
+
+    DebugPrint("KeStallExecutionProcessor: %i", MicroSeconds);
+    
+    // TODO
+
+    SwapTibs();
+}
+
+BOOLEAN WINAPI Dirtbox::KeSynchronizeExecution(
+    PKINTERRUPT Interrupt, PKSYNCHRONIZE_ROUTINE SynchronizeRoutine, PVOID SynchronizeContext
+)
+{
+    SwapTibs();
+
+    DebugPrint("KeSynchronizeExecution: 0x%08x 0x%08x 0x%08x", 
+        Interrupt, SynchronizeRoutine, SynchronizeContext);
+
+    // I don't think we need to do anything here for now
 
     SwapTibs();
     return TRUE;
 }
 
+NTSTATUS WINAPI Dirtbox::KeWaitForMultipleObjects(
+    DWORD Count, PVOID *Object, WAIT_TYPE WaitType, KWAIT_REASON WaitReason, 
+    KPROCESSOR_MODE WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Timeout, 
+    PKWAIT_BLOCK WaitBlockArray
+)
+{
+    SwapTibs();
+
+    DebugPrint("KeWaitForMultipleObjects: 0x%x 0x%08x %i %i %i %i 0x%08x 0x%08x", 
+        Count, Object, WaitType, WaitReason, WaitMode, Alertable, Timeout, WaitBlockArray);
+
+    PHANDLE NtObject = (PHANDLE)malloc(Count * sizeof(HANDLE));
+    for (DWORD i = 0; i < Count; i++)
+        NtObject[i] = GetDirtObject(Object[i]);
+
+    NTSTATUS Res = ::NtWaitForMultipleObjects(
+        Count, NtObject, WaitType, Alertable, Timeout
+    );
+
+    SwapTibs();
+    return Res;
+}
+
 NTSTATUS WINAPI Dirtbox::KeWaitForSingleObject(
-    PVOID Object, KWAIT_REASON WaitReason, CHAR WaitMode, CHAR Alertable, 
+    PVOID Object, KWAIT_REASON WaitReason, KPROCESSOR_MODE WaitMode, BOOLEAN Alertable, 
     PLARGE_INTEGER Timeout
 )
 {
     SwapTibs();
 
-    DebugPrint("KeWaitForSingleObject: 0x%08x %i %i %i %i 0x%08x",
+    DebugPrint("KeWaitForSingleObject: 0x%08x %i %i %i 0x%08x", 
         Object, WaitReason, WaitMode, Alertable, Timeout);
 
-    // Loop disabled since we don't signal the VBlank object
+    // TODO: We gotta signal the VBlank object
 
-    /*
-    while (((PKEVENT)Object)->Header.SignalState == 0)
-        ;
-    */
+    ::NtWaitForSingleObject(GetDirtObject(Object), Alertable, Timeout);
 
     SwapTibs();
     return STATUS_SUCCESS;
@@ -745,7 +851,7 @@ PVOID WINAPI Dirtbox::MmAllocateContiguousMemoryEx(
 {
     SwapTibs();
 
-    DebugPrint("MmAllocateContiguousMemoryEx: 0x%x 0x%08x 0x%08x 0x%x 0x%08x",
+    DebugPrint("MmAllocateContiguousMemoryEx: 0x%x 0x%08x 0x%08x 0x%x 0x%08x", 
         NumberOfBytes, LowestAcceptableAddress, HighestAcceptableAddress, Alignment, ProtectionType);
 
     if ((Alignment - 1) & Alignment)
@@ -823,7 +929,7 @@ VOID WINAPI Dirtbox::MmPersistContiguousMemory(
 {
     SwapTibs();
 
-    DebugPrint("MmPersistContiguousMemory: 0x%08x 0x%x %i",
+    DebugPrint("MmPersistContiguousMemory: 0x%08x 0x%x %i", 
         BaseAddress, NumberOfBytes, Persist);
 
     // Not sure if we need to implement this
@@ -867,7 +973,7 @@ DWORD WINAPI Dirtbox::MmSetAddressProtect(
 {
     SwapTibs();
 
-    DebugPrint("MmSetAddressProtect: 0x%08x 0x%x 0x%08x",
+    DebugPrint("MmSetAddressProtect: 0x%08x 0x%x 0x%08x", 
         BaseAddress, NumberOfBytes, NewProtect);
 
     DWORD Dummy;
@@ -884,7 +990,7 @@ NTSTATUS WINAPI Dirtbox::NtAllocateVirtualMemory(
 {
     SwapTibs();
 
-    DebugPrint("NtAllocateVirtualMemory: 0x%08x 0x%x 0x%x 0x%x 0x%x",
+    DebugPrint("NtAllocateVirtualMemory: 0x%08x 0x%x 0x%x 0x%x 0x%x", 
         BaseAddress, ZeroBits, *AllocationSize, AllocationType, Protect);
 
     NTSTATUS Res = ::NtAllocateVirtualMemory(
@@ -918,7 +1024,7 @@ NTSTATUS WINAPI Dirtbox::NtCreateEvent(
 {
     SwapTibs();
 
-    DebugPrint("NtCreateEvent: 0x%08x 0x%08x \"%s\" 0x%x %i",
+    DebugPrint("NtCreateEvent: 0x%08x 0x%08x \"%s\" 0x%x %i", 
         EventHandle, ObjectAttributes, ObjectAttributes->ObjectName->Buffer, EventType,
         InitialState);
 
@@ -952,7 +1058,7 @@ NTSTATUS WINAPI Dirtbox::NtCreateFile(
 {
     SwapTibs();
 
-    DebugPrint("NtCreateFile: 0x%08x 0x%x 0x%08x \"%s\" 0x%08x 0x%08x 0x%x 0x%x 0x%x 0x%x",
+    DebugPrint("NtCreateFile: 0x%08x 0x%x 0x%08x \"%s\" 0x%08x 0x%08x 0x%x 0x%x 0x%x 0x%x", 
         FileHandle, DesiredAccess, ObjectAttributes, ObjectAttributes->ObjectName->Buffer, 
         IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, 
         CreateDisposition, CreateOptions);
@@ -986,7 +1092,7 @@ NTSTATUS WINAPI Dirtbox::NtCreateSemaphore(
 {
     SwapTibs();
 
-    DebugPrint("NtCreateSemaphore: 0x%08x 0x%08x \"%s\" %i %i",
+    DebugPrint("NtCreateSemaphore: 0x%08x 0x%08x \"%s\" %i %i", 
         SemaphoreHandle, ObjectAttributes, ObjectAttributes->ObjectName->Buffer,
         InitialCount, MaximumCount);
 
@@ -1021,7 +1127,7 @@ NTSTATUS WINAPI Dirtbox::NtDeviceIoControlFile(
     SwapTibs();
 
     DebugPrint("NtDeviceIoControlFile: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%x " 
-        "0x%08x 0x%x 0x%08x 0x%x",
+        "0x%08x 0x%x 0x%08x 0x%x", 
         FileHandle, Event, ApcRoutine, ApcContext,
         IoStatusBlock, IoControlCode, InputBuffer, InputBufferLength,
         OutputBuffer, OutputBufferLength);
@@ -1072,7 +1178,7 @@ NTSTATUS WINAPI Dirtbox::NtFsControlFile(
     SwapTibs();
 
     DebugPrint("NtFsControlFile: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%x " 
-        "0x%08x 0x%x 0x%08x 0x%x",
+        "0x%08x 0x%x 0x%08x 0x%x", 
         FileHandle, Event, ApcRoutine, ApcContext,
         IoStatusBlock, IoControlCode, InputBuffer, InputBufferLength,
         OutputBuffer, OutputBufferLength);
@@ -1090,7 +1196,7 @@ NTSTATUS WINAPI Dirtbox::NtOpenFile(
 {
     SwapTibs();
 
-    DebugPrint("NtOpenFile: 0x%08x 0x%x 0x%08x \"%s\" 0x%08x 0x%x 0x%x",
+    DebugPrint("NtOpenFile: 0x%08x 0x%x 0x%08x \"%s\" 0x%08x 0x%x 0x%x", 
         FileHandle, DesiredAccess, ObjectAttributes, ObjectAttributes->ObjectName->Buffer, 
         IoStatusBlock, ShareAccess, OpenOptions);
 
@@ -1122,7 +1228,7 @@ NTSTATUS WINAPI Dirtbox::NtOpenSymbolicLinkObject(
 {
     SwapTibs();
 
-    DebugPrint("NtOpenSymbolicLinkObject: 0x%08x 0x%08x \"%s\"",
+    DebugPrint("NtOpenSymbolicLinkObject: 0x%08x 0x%08x \"%s\"", 
         LinkHandle, ObjectAttributes, ObjectAttributes->ObjectName->Buffer);
 
     // Can fail, then it assumes to be CD-ROM
@@ -1154,7 +1260,7 @@ NTSTATUS WINAPI Dirtbox::NtQueryDirectoryFile(
     SwapTibs();
 
     DebugPrint("NtQueryDirectoryFile: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%x " 
-        "0x%08x \"%s\" %i",
+        "0x%08x \"%s\" %i", 
         FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, 
         FileInformationClass, FileName->Buffer, RestartScan);
 
@@ -1180,7 +1286,7 @@ NTSTATUS WINAPI Dirtbox::NtQueryInformationFile(
 {
     SwapTibs();
 
-    DebugPrint("NtQueryInformationFile: 0x%08x 0x%08x 0x%08x 0x%x 0x%x",
+    DebugPrint("NtQueryInformationFile: 0x%08x 0x%08x 0x%08x 0x%x 0x%x", 
         FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
 
     NTSTATUS Res = ::NtQueryInformationFile(
@@ -1197,7 +1303,7 @@ NTSTATUS WINAPI Dirtbox::NtQuerySymbolicLinkObject(
 {
     SwapTibs();
 
-    DebugPrint("NtOpenSymbolicLinkObject: 0x%08x \"%s\" 0x%x",
+    DebugPrint("NtOpenSymbolicLinkObject: 0x%08x \"%s\" 0x%x", 
         LinkHandle, LinkTarget->Buffer, ReturnedLength);
 
     // Can fail, then it assumes to be CD-ROM
@@ -1229,7 +1335,7 @@ NTSTATUS WINAPI Dirtbox::NtQueryVolumeInformationFile(
 {
     SwapTibs();
 
-    DebugPrint("NtQueryVolumeInformationFile: 0x%08x 0x%08x 0x%08x 0x%x 0x%08x",
+    DebugPrint("NtQueryVolumeInformationFile: 0x%08x 0x%08x 0x%08x 0x%x 0x%08x", 
         FileHandle, IoStatusBlock, FsInformation, Length, FsInformationClass);
 
     NTSTATUS Res = ::NtQueryVolumeInformationFile(
@@ -1255,7 +1361,7 @@ NTSTATUS WINAPI Dirtbox::NtReadFile(
 {
     SwapTibs();
 
-    DebugPrint("NtReadFile: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%x 0x%08x",
+    DebugPrint("NtReadFile: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%x 0x%08x", 
         FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset);
 
     NTSTATUS Res = ::NtReadFile(
@@ -1272,7 +1378,7 @@ NTSTATUS WINAPI Dirtbox::NtReleaseSemaphore(
 {
     SwapTibs();
 
-    DebugPrint("NtReleaseSemaphore: 0x%08x %i 0x%08x",
+    DebugPrint("NtReleaseSemaphore: 0x%08x %i 0x%08x", 
         SemaphoreHandle, ReleaseCount, PreviousCount);
 
     NTSTATUS Res = ::NtReleaseSemaphore(SemaphoreHandle, ReleaseCount, PreviousCount);
@@ -1316,7 +1422,7 @@ NTSTATUS WINAPI Dirtbox::NtSetInformationFile(
 {
     SwapTibs();
 
-    DebugPrint("NtSetInformationFile: 0x%08x 0x%08x 0x%08x 0x%x 0x%x",
+    DebugPrint("NtSetInformationFile: 0x%08x 0x%08x 0x%08x 0x%x 0x%x", 
         FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
 
     NTSTATUS Res = ::NtSetInformationFile(
@@ -1355,7 +1461,7 @@ NTSTATUS WINAPI Dirtbox::NtWaitForSingleObjectEx(
 {
     SwapTibs();
 
-    DebugPrint("NtWaitForSingleObjectEx: 0x%08x 0x%x %i 0x%08x",
+    DebugPrint("NtWaitForSingleObjectEx: 0x%08x 0x%x %i 0x%08x", 
         Handle, WaitMode, Alertable, Timeout);
 
     NTSTATUS Res = ::NtWaitForSingleObject(
@@ -1373,7 +1479,7 @@ NTSTATUS WINAPI Dirtbox::NtWriteFile(
 {
     SwapTibs();
 
-    DebugPrint("NtWriteFile: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%x 0x%08x",
+    DebugPrint("NtWriteFile: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%x 0x%08x", 
         FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset);
 
     NTSTATUS Res = ::NtWriteFile(
@@ -1404,8 +1510,8 @@ NTSTATUS WINAPI Dirtbox::PsCreateSystemThreadEx(
 {
     SwapTibs();
 
-    DebugPrint("PsCreateSystemThreadEx: 0x%08x 0x%x 0x%x 0x%x 0x%08x "
-        "0x%08x 0x%08x %i %i 0x%08x",
+    DebugPrint("PsCreateSystemThreadEx: 0x%08x 0x%x 0x%x 0x%x 0x%08x " 
+        "0x%08x 0x%08x %i %i 0x%08x", 
         ThreadHandle, ThreadExtensionSize, KernelStackSize, TlsDataSize, ThreadId, 
         StartRoutine, StartContext, CreateSuspended, DebuggerThread, SystemRoutine);
 
@@ -1480,24 +1586,35 @@ NTSTATUS WINAPI Dirtbox::RtlEnterCriticalSection(
 
     DebugPrint("RtlEnterCriticalSection: 0x%08x", CriticalSection);
 
-    // has critical section already been acquired yet?
-    if (InterlockedIncrement(&CriticalSection->LockCount) == 0)
+    // Try to lock it
+    if (InterlockedIncrement(&CriticalSection->LockCount) != 0)
     {
-        // we are the first to acquire the critical section
-    }
-    else if (CriticalSection->OwningThread == Kpcr->Prcb->CurrentThread)
-    {
-        // critical section has been acquired already, but by same thread
-        CriticalSection->RecursionCount++;
-        SwapTibs();
-        return STATUS_SUCCESS;
-    }
-    else
-    {
-        // critical section has been acquired already, by different thread
-        while (InterlockedExchange(&CriticalSection->Synchronization.SignalState, 0) != 1) ;
+        // We've failed to lock it! Does this thread
+        // actually own it?
+        if (CriticalSection->OwningThread == Kpcr->Prcb->CurrentThread)
+        {
+            // You own it, so you'll get it when you're done with it! No need to
+            // use the interlocked functions as only the thread who already owns
+            // the lock can modify this data.
+            CriticalSection->RecursionCount++;
+            SwapTibs();
+            return STATUS_SUCCESS;
+        }
+
+        // NOTE - CriticalSection->OwningThread can be NULL here because changing
+        //        this information is not serialized. This happens when thread a
+        //        acquires the lock (LockCount == 0) and thread b tries to
+        //        acquire it as well (LockCount == 1) but thread a hasn't had a
+        //        chance to set the OwningThread! So it's not an error when
+        //        OwningThread is NULL here!
+
+        // We don't own it, so we must wait for it
+        ::NtWaitForSingleObject(GetDirtObject(CriticalSection), TRUE, NULL);
     }
 
+    // Lock successful. Changing this information has not to be serialized because
+    // only one thread at a time can actually change it (the one who acquired
+    // the lock)!
     CriticalSection->RecursionCount = 1;
     CriticalSection->OwningThread = Kpcr->Prcb->CurrentThread;
     SwapTibs();
@@ -1555,7 +1672,7 @@ VOID WINAPI Dirtbox::RtlInitializeCriticalSection(
     SwapTibs();
 }
 
-VOID WINAPI Dirtbox::RtlLeaveCriticalSection(
+NTSTATUS WINAPI Dirtbox::RtlLeaveCriticalSection(
     PXBOX_CRITICAL_SECTION CriticalSection
 )
 {
@@ -1563,26 +1680,27 @@ VOID WINAPI Dirtbox::RtlLeaveCriticalSection(
 
     DebugPrint("RtlLeaveCriticalSection: 0x%08x", CriticalSection);
 
-    // is this the last release of critical section in this thread?
+    // Decrease the Recursion Count. No need to do this atomically because only
+    // the thread who holds the lock can call this function (unless the program
+    // is totally screwed...
     CriticalSection->RecursionCount--;
-    if (CriticalSection->RecursionCount > 0)
+    if (CriticalSection->RecursionCount)
     {
+        // Someone still owns us, but we are free. This needs to be done atomically.
         InterlockedDecrement(&CriticalSection->LockCount);
     }
     else
     {
-        // this thread no longer holds this critical section
-        CriticalSection->OwningThread = NULL;
-        // are there other threads waiting on this critical section?
-        if (InterlockedDecrement(&CriticalSection->LockCount) > -1)
-        {
-            // signal to other threads waiting on critical section
-            CriticalSection->Synchronization.SignalState = 1;
-        }
+         // Nobody owns us anymore. No need to do this atomically.
+        CriticalSection->OwningThread = 0;
+
+        // Was someone wanting us? This needs to be done atomically.
+        if (InterlockedDecrement(&CriticalSection->LockCount) != -1)
+            ::NtSetEvent(GetDirtObject(CriticalSection), NULL);
     }
 
-
     SwapTibs();
+    return STATUS_SUCCESS;
 }
 
 DWORD WINAPI Dirtbox::RtlNtStatusToDosError(

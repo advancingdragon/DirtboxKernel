@@ -100,6 +100,9 @@ namespace Dirtbox
     VOID WINAPI KeBugCheck(
         DWORD BugCheckCode
     );
+    BOOLEAN WINAPI KeCancelTimer(
+        PKTIMER Timer
+    );
     BOOLEAN WINAPI KeConnectInterrupt(
         PKINTERRUPT Interrupt
     );
@@ -112,6 +115,9 @@ namespace Dirtbox
     VOID WINAPI KeInitializeDpc(
         PKDPC Dpc, PKDEFERRED_ROUTINE DeferredRoutine, PVOID DeferredContext
     );
+    VOID WINAPI KeInitializeEvent(
+        PKEVENT Event, EVENT_TYPE Type, BOOLEAN State
+    );
     VOID WINAPI KeInitializeInterrupt(
         PKINTERRUPT Interrupt, PKSERVICE_ROUTINE ServiceRoutine, PVOID ServiceContext, DWORD Vector,
         KIRQL Irql, KINTERRUPT_MODE InterruptMode, BOOLEAN ShareVector
@@ -122,18 +128,52 @@ namespace Dirtbox
     BOOLEAN WINAPI KeInsertQueueDpc(
         PKDPC Dpc, PVOID SystemArgument1, PVOID SystemArgument2
     );
+    KPRIORITY WINAPI KeQueryBasePriorityThread(
+        PKTHREAD Thread
+    );
+    DWORDLONG WINAPI KeQueryInterruptTime();
     VOID WINAPI KeQuerySystemTime(
         PLARGE_INTEGER CurrentTime
     );
     KIRQL WINAPI KeRaiseIrqlToDpcLevel();
+    BOOLEAN WINAPI KeRemoveQueueDpc(
+        PKDPC Dpc
+    );
+    NTSTATUS WINAPI KeRestoreFloatingPointState(
+        PKFLOATING_SAVE PublicFloatSave
+    );
+    NTSTATUS WINAPI KeSaveFloatingPointState(
+        PKFLOATING_SAVE PublicFloatSave
+    );
+    LONG WINAPI KeSetBasePriorityThread(
+        PKTHREAD Thread, LONG Increment
+    );
+    BOOLEAN WINAPI KeSetDisableBoostThread(
+        PKTHREAD Thread, BOOLEAN Disable
+    );
     BOOLEAN WINAPI KeSetEvent(
-        PKEVENT Event, LONG Increment, CHAR Wait
+        PKEVENT Event, LONG Increment, BOOLEAN Wait
     );
     BOOLEAN WINAPI KeSetTimer(
         PKTIMER Timer, LARGE_INTEGER DueTime, PKDPC Dpc
     );
+    BOOLEAN WINAPI KeSetTimerEx(
+        PKTIMER Timer, LARGE_INTEGER DueTime, LONG Period, PKDPC Dpc
+    );
+    VOID WINAPI KeStallExecutionProcessor(
+        DWORD MicroSeconds
+    );
+    BOOLEAN WINAPI KeSynchronizeExecution(
+        PKINTERRUPT Interrupt, PKSYNCHRONIZE_ROUTINE SynchronizeRoutine, PVOID SynchronizeContext
+    );
+    extern KSYSTEM_TIME KeTickCount;
+    NTSTATUS WINAPI KeWaitForMultipleObjects(
+        DWORD Count, PVOID *Object, WAIT_TYPE WaitType, KWAIT_REASON WaitReason, 
+        KPROCESSOR_MODE WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Timeout, 
+        PKWAIT_BLOCK WaitBlockArray
+    );
     NTSTATUS WINAPI KeWaitForSingleObject(
-        PVOID Object, KWAIT_REASON WaitReason, CHAR WaitMode, CHAR Alertable, 
+        PVOID Object, KWAIT_REASON WaitReason, KPROCESSOR_MODE WaitMode, BOOLEAN Alertable, 
         PLARGE_INTEGER Timeout
     );
 
@@ -288,7 +328,7 @@ namespace Dirtbox
     VOID WINAPI RtlInitializeCriticalSection(
         PXBOX_CRITICAL_SECTION CriticalSection
     );
-    VOID WINAPI RtlLeaveCriticalSection(
+    NTSTATUS WINAPI RtlLeaveCriticalSection(
         PXBOX_CRITICAL_SECTION CriticalSection
     );
     DWORD WINAPI RtlNtStatusToDosError(

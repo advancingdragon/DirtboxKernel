@@ -104,6 +104,12 @@ enum TIMER_TYPE
 	SynchronizationTimer  = 1
 };
 
+enum WAIT_TYPE
+{ 
+    WaitAll = 0, 
+    WaitAny = 1
+};
+
 enum XC_VALUE_INDEX
 {
     XC_TIMEZONE_BIAS = 0x0, 
@@ -140,8 +146,11 @@ enum XC_VALUE_INDEX
 // typedefs for primitive-sized types
 typedef DWORD FILE_INFORMATION_CLASS, *PFILE_INFORMATION_CLASS;
 typedef BYTE KIRQL, *PKIRQL;
+typedef LONG KPRIORITY, *PKPRIORITY;
+typedef CHAR KPROCESSOR_MODE;
 // don't want to define this yet
 typedef PVOID PKQUEUE;
+typedef PVOID PTIMER_APC_ROUTINE;
 
 // forward declarations for pointers in earlier structs
 typedef struct ANSI_STRING *PANSI_STRING;
@@ -167,6 +176,7 @@ typedef VOID (WINAPI *PKKERNEL_ROUTINE) (PKAPC, PKNORMAL_ROUTINE, PVOID *, PVOID
 typedef VOID (WINAPI *PKRUNDOWN_ROUTINE) (PKAPC);
 typedef BOOLEAN (WINAPI *PKSERVICE_ROUTINE) (PKINTERRUPT, PVOID);
 typedef VOID (WINAPI *PKSTART_ROUTINE) (PVOID);
+typedef BOOLEAN (WINAPI *PKSYNCHRONIZE_ROUTINE)(PVOID);
 typedef VOID (WINAPI *PKSYSTEM_ROUTINE) (PKSTART_ROUTINE, PVOID);
 
 typedef VOID (WINAPI *PIO_APC_ROUTINE)(PVOID, PIO_STATUS_BLOCK, DWORD);
@@ -204,7 +214,7 @@ typedef struct UNICODE_STRING // 0x8
     PWSTR Buffer; // +0x4(0x4)
 } *PUNICODE_STRING;
 
-struct DISPATCHER_HEADER // 0x10
+typedef struct DISPATCHER_HEADER // 0x10
 {
     BYTE Type; // +0x0(0x1)
     BYTE Absolute; // +0x1(0x1)
@@ -212,7 +222,7 @@ struct DISPATCHER_HEADER // 0x10
     BYTE Inserted; // +0x3(0x1)
     LONG SignalState; // +0x4(0x4)
     LIST_ENTRY WaitListHead; // +0x8(0x8)
-};
+} *PDISPATCHER_HEADER;
 
 typedef struct FILE_FS_SIZE_INFORMATION // 0x18
 {
@@ -310,6 +320,18 @@ typedef struct KEVENT // 0x10
     DISPATCHER_HEADER Header; // +0x0(0x10)
 } *PKEVENT;
 
+typedef struct KFLOATING_SAVE // 0x20
+{
+    DWORD ControlWord; // +0x0(0x4)
+    DWORD StatusWord; // +0x4(0x4)
+    DWORD ErrorOffset; // +0x8(0x4)
+    DWORD ErrorSelector; // +0xC(0x4)
+    DWORD DataOffset; // +0x10(0x4)
+    DWORD DataSelector; // +0x14(0x4)
+    DWORD Cr0NpxState; // +0x18(0x4)
+    DWORD Spare1; // +0x1C(0x4)
+} *PKFLOATING_SAVE;
+
 struct KINTERRUPT // 0x70
 {
     PKSERVICE_ROUTINE ServiceRoutine; // +0x0(0x4)
@@ -367,7 +389,7 @@ struct KTHREAD // 0x110
     KAPC_STATE ApcState; // +0x34(0x18)
     DWORD ContextSwitches; // +0x4C(0x4)
     LONG WaitStatus; // +0x50(0x4)
-    BYTE WaitIrql; // +0x54(0x1)
+    KIRQL WaitIrql; // +0x54(0x1)
     CHAR WaitMode; // +0x55(0x1)
     BYTE WaitNext; // +0x56(0x1)
     BYTE WaitReason; // +0x57(0x1)
@@ -380,7 +402,7 @@ struct KTHREAD // 0x110
     BYTE DecrementCount; // +0x71(0x1)
     CHAR PriorityDecrement; // +0x72(0x1)
     BYTE DisableBoost; // +0x73(0x1)
-    BYTE NpxIrql; // +0x74(0x1)
+    KIRQL NpxIrql; // +0x74(0x1)
     CHAR SuspendCount; // +0x75(0x1)
     BYTE Preempted; // +0x76(0x1)
     BYTE HasTerminated; // +0x77(0x1)
@@ -424,6 +446,13 @@ struct KPCR // 0x284
     KIRQL Irql; // +0x24(0x1)
     KPRCB PrcbData; // +0x28(0x25C)
 };
+
+typedef struct KSYSTEM_TIME // 0xC
+{
+    DWORD LowPart; // +0x0(0x4)
+    LONG High1Time; // +0x4(0x4)
+    LONG High2Time; // +0x8(0x4)
+} *PKSYSTEM_TIME;
 
 typedef struct ETHREAD // 0x140
 {

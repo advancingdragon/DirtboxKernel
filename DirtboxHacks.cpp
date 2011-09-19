@@ -1,6 +1,5 @@
 // Miscellaneous hacks
 
-#include "DirtboxDefines.h"
 #include "DirtboxEmulator.h"
 #include "Native.h"
 
@@ -117,4 +116,72 @@ VOID Dirtbox::InitializeDrives()
     CreateDirectoryA("Dummy", NULL);
 
     DebugPrint("InitializeDrives: Virtual drives initialized successfully.");
+}
+
+BOOLEAN Dirtbox::IsValidDosPath(PANSI_STRING String)
+{
+    return String->Length >= 3 &&
+        strpbrk(String->Buffer, "CDTUZcdtuz") == String->Buffer &&
+        strncmp(String->Buffer + 1, ":\\", 2) == 0;
+}
+
+NTSTATUS Dirtbox::ConvertObjectAttributes(
+    POBJECT_ATTRIBUTES Destination, PUNICODE_STRING ObjectName, PWSTR Buffer, 
+    PXBOX_OBJECT_ATTRIBUTES Source
+)
+{
+    if (Source->RootDirectory == OB_DOS_DEVICES)
+    {
+        // validate correctness of path
+        if (!IsValidDosPath(Source->ObjectName))
+        {
+            DebugPrint("ConvertObjectAttributes: Invalid path name.");
+            return STATUS_OBJECT_NAME_INVALID;
+        }
+
+        // build the new path
+        RtlInitEmptyUnicodeString(ObjectName, Buffer, MAX_PATH);
+        RtlAnsiStringToUnicodeString(ObjectName, Source->ObjectName, FALSE);
+
+        // ':' is not an allowed char in names, so replace it with _
+        ObjectName->Buffer[1] = L'_';
+
+        /*
+        // D:\ refers to current directory
+        if (ObjectName->Buffer[0] == L'D' || ObjectName->Buffer[0] == L'd')
+        {
+            // remove D:\ in the beginning of string
+            ObjectName->Length -= 3;
+            for (SHORT i = 0; i < ObjectName->Length; i++)
+                ObjectName->Buffer[i] = ObjectName->Buffer[i + 3];
+            ObjectName->Buffer[ObjectName->Length + 1] = L'\0';
+        }
+        else
+        {
+            // ':' is not an allowed char in names, so replace it with _
+            ObjectName->Buffer[1] = L'_';
+        }
+        */
+    }
+    else if (Source->RootDirectory == NULL)
+    {
+        // build the new path
+        RtlInitEmptyUnicodeString(ObjectName, Buffer, MAX_PATH);
+        RtlAppendUnicodeToString(ObjectName, L"Dummy");
+    }
+    else
+    {
+        DebugPrint("ConvertObjectAttributes: Invalid root directory.");
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    // Convert XBOX_OBJECT_ATTRIBUTES to Windows NT OBJECT_ATTRIBUTES
+    Destination->Length = sizeof(OBJECT_ATTRIBUTES);
+    Destination->ObjectName = ObjectName;
+    Destination->Attributes = Source->Attributes;
+    Destination->RootDirectory = CurrentDirectory;
+    Destination->SecurityDescriptor = NULL;
+    Destination->SecurityQualityOfService = NULL;
+
+    return STATUS_SUCCESS;
 }

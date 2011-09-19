@@ -11,6 +11,10 @@ NTSTATUS WINAPI NtAllocateVirtualMemory(
     DWORD AllocationType, DWORD Protect
 );
 
+NTSTATUS WINAPI NtCancelTimer(
+    HANDLE TimerHandle, PBOOLEAN CurrentState
+);
+
 NTSTATUS WINAPI NtClose(
     HANDLE Handle
 );
@@ -65,6 +69,10 @@ NTSTATUS WINAPI NtQueryInformationFile(
     FILE_INFORMATION_CLASS FileInformationClass
 );
 
+NTSTATUS WINAPI NtQuerySystemTime(
+    PLARGE_INTEGER SystemTime
+);
+
 NTSTATUS WINAPI NtQueryVolumeInformationFile(
     HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FsInformation, DWORD Length, 
     FS_INFORMATION_CLASS FsInformationClass
@@ -97,8 +105,19 @@ NTSTATUS WINAPI NtSetLdtEntries(
     DWORD Selector, LDT_ENTRY Entry, DWORD a, DWORD b, DWORD c
 );
 
+NTSTATUS WINAPI NtSetTimer(
+    HANDLE TimerHandle, PLARGE_INTEGER DueTime, 
+    PTIMER_APC_ROUTINE TimerApcRoutine, PVOID TimerContext, BOOLEAN ResumeTimer, 
+    LONG Period, PBOOLEAN PreviousState
+);
+
 NTSTATUS WINAPI NtSuspendThread(
     HANDLE ThreadHandle, PDWORD PreviousSuspendCount
+);
+
+NTSTATUS WINAPI NtWaitForMultipleObjects(
+    DWORD ObjectCount, PHANDLE ObjectsArray, WAIT_TYPE WaitType, BOOLEAN Alertable,
+    PLARGE_INTEGER Timeout
 );
 
 DWORD WINAPI NtWaitForSingleObject(

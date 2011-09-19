@@ -1,6 +1,5 @@
 // Main entry point
 
-#include "DirtboxDefines.h"
 #include "DirtboxEmulator.h"
 #include "DirtboxKernel.h"
 #include <stdio.h>
@@ -19,7 +18,7 @@ BOOL WINAPI DllMain(
 
 VOID WINAPI Dirtbox::Initialize()
 {
-    // Initialize printing locks
+    // Initialize locks
     InitializeCriticalSection(&PrintLock);
 
     InitializeException();
@@ -68,6 +67,10 @@ VOID Dirtbox::InitializeKernel()
     IoFileObjectType.ParseProcedure = NULL; // TODO
     IoFileObjectType.DefaultObject = (PVOID)0x38;
     IoFileObjectType.PoolTag = 0x656C6946;
+
+    KeTickCount.LowPart = 0;
+    KeTickCount.High1Time = 0;
+    KeTickCount.High2Time = 0;
 
     LaunchDataPage = 0;
 
@@ -182,6 +185,9 @@ VOID Dirtbox::InitializeKernel()
         case 95:
             KernelImageThunks[i] = (DWORD)&KeBugCheck;
             break;
+        case 97:
+            KernelImageThunks[i] = (DWORD)&KeCancelTimer;
+            break;
         case 98:
             KernelImageThunks[i] = (DWORD)&KeConnectInterrupt;
             break;
@@ -194,6 +200,9 @@ VOID Dirtbox::InitializeKernel()
         case 107:
             KernelImageThunks[i] = (DWORD)&KeInitializeDpc;
             break;
+        case 108:
+            KernelImageThunks[i] = (DWORD)&KeInitializeEvent;
+            break;
         case 109:
             KernelImageThunks[i] = (DWORD)&KeInitializeInterrupt;
             break;
@@ -203,17 +212,53 @@ VOID Dirtbox::InitializeKernel()
         case 119:
             KernelImageThunks[i] = (DWORD)&KeInsertQueueDpc;
             break;
+        case 124:
+            KernelImageThunks[i] = (DWORD)&KeQueryBasePriorityThread;
+            break;
+        case 125:
+            KernelImageThunks[i] = (DWORD)&KeQueryInterruptTime;
+            break;
         case 128:
             KernelImageThunks[i] = (DWORD)&KeQuerySystemTime;
             break;
         case 129:
             KernelImageThunks[i] = (DWORD)&KeRaiseIrqlToDpcLevel;
             break;
+        case 137:
+            KernelImageThunks[i] = (DWORD)&KeRemoveQueueDpc;
+            break;
+        case 139:
+            KernelImageThunks[i] = (DWORD)&KeRestoreFloatingPointState;
+            break;
+        case 142:
+            KernelImageThunks[i] = (DWORD)&KeSaveFloatingPointState;
+            break;
+        case 143:
+            KernelImageThunks[i] = (DWORD)&KeSetBasePriorityThread;
+            break;
+        case 144:
+            KernelImageThunks[i] = (DWORD)&KeSetDisableBoostThread;
+            break;
         case 145:
             KernelImageThunks[i] = (DWORD)&KeSetEvent;
             break;
         case 149:
             KernelImageThunks[i] = (DWORD)&KeSetTimer;
+            break;
+        case 150:
+            KernelImageThunks[i] = (DWORD)&KeSetTimerEx;
+            break;
+        case 151:
+            KernelImageThunks[i] = (DWORD)&KeStallExecutionProcessor;
+            break;
+        case 153:
+            KernelImageThunks[i] = (DWORD)&KeSynchronizeExecution;
+            break;
+        case 156:
+            KernelImageThunks[i] = (DWORD)&KeTickCount;
+            break;
+        case 158:
+            KernelImageThunks[i] = (DWORD)&KeWaitForMultipleObjects;
             break;
         case 159:
             KernelImageThunks[i] = (DWORD)&KeWaitForSingleObject;

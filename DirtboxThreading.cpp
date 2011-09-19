@@ -1,6 +1,5 @@
 // Threading - thread local storage and thread information block
 
-#include "DirtboxDefines.h"
 #include "DirtboxEmulator.h"
 #include "Native.h"
 #include <malloc.h>
