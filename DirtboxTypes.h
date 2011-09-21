@@ -143,6 +143,17 @@ enum XC_VALUE_INDEX
     XC_MAX_ALL = 0xFFFF
 };
 
+// Windows NT only enums
+
+enum OBJECT_INFORMATION_CLASS
+{
+    ObjectBasicInformation,
+    ObjectNameInformation,
+    ObjectTypeInformation,
+    ObjectAllInformation,
+    ObjectDataInformation
+};
+
 // typedefs for primitive-sized types
 typedef DWORD FILE_INFORMATION_CLASS, *PFILE_INFORMATION_CLASS;
 typedef BYTE KIRQL, *PKIRQL;
@@ -223,6 +234,14 @@ typedef struct DISPATCHER_HEADER // 0x10
     LONG SignalState; // +0x4(0x4)
     LIST_ENTRY WaitListHead; // +0x8(0x8)
 } *PDISPATCHER_HEADER;
+
+typedef struct XBOX_CRITICAL_SECTION // 0x1C
+{
+    DISPATCHER_HEADER Synchronization; // +0x0(0x10)
+    LONG LockCount; // +0x10(0x4)
+    LONG RecursionCount; // +0x14(0x4)
+    PVOID OwningThread; // +0x18(0x4)
+} *PXBOX_CRITICAL_SECTION;
 
 typedef struct FILE_FS_SIZE_INFORMATION // 0x18
 {
@@ -557,6 +576,13 @@ struct IRP // 0x68
     } Tail; // +0x3c(0x28)
 };
 
+typedef struct XBOX_OBJECT_ATTRIBUTES // 0xC
+{
+        HANDLE RootDirectory; // +0x0(0x4)
+        PANSI_STRING ObjectName; // +0x4(0x4)
+        DWORD Attributes; // +0x8(0x4)
+} *PXBOX_OBJECT_ATTRIBUTES;
+
 struct OBJECT_TYPE // 0x1c
 {
     OB_ALLOCATE_METHOD AllocateProcedure; // +0x0(0x4)
@@ -597,21 +623,6 @@ struct DRIVER_OBJECT // 0x44
     PDRIVER_DISPATCH MajorFunction[0xe]; // +0xC(0x38)
 };
 
-typedef struct XBOX_CRITICAL_SECTION // 0x1C
-{
-    DISPATCHER_HEADER Synchronization; // +0x0(0x10)
-    LONG LockCount; // +0x10(0x4)
-    LONG RecursionCount; // +0x14(0x4)
-    PVOID OwningThread; // +0x18(0x4)
-} *PXBOX_CRITICAL_SECTION;
-
-typedef struct XBOX_OBJECT_ATTRIBUTES // 0xC
-{
-        HANDLE RootDirectory; // +0x0(0x4)
-        PANSI_STRING ObjectName; // +0x4(0x4)
-        DWORD Attributes; // +0x8(0x4)
-} *PXBOX_OBJECT_ATTRIBUTES;
-
 typedef struct MM_STATISTICS // 0x24
 {
     DWORD Length; // +0x0(0x4)
@@ -624,6 +635,18 @@ typedef struct MM_STATISTICS // 0x24
     DWORD StackPagesCommitted; // +0x1C(0x4)
     DWORD ImagePagesCommitted; // +0x20(0x4)
 } *PMM_STATISTICS;
+
+typedef struct TIME_FIELDS // 0x10
+{
+    SHORT Year; // +0x0(0x2)
+    SHORT Month; // +0x2(0x2)
+    SHORT Day; // +0x4(0x2)
+    SHORT Hour; // +0x6(0x2)
+    SHORT Minute; // +0x8(0x2)
+    SHORT Second; // +0xA(0x2)
+    SHORT Milliseconds; // +0xC(0x2)
+    SHORT Weekday; // +0xE(0x2)
+} *PTIME_FIELDS;
 
 struct XBOX_HARDWARE_INFO // 0x8
 {
@@ -666,5 +689,11 @@ typedef struct OBJECT_ATTRIBUTES
     PVOID SecurityDescriptor;
     PVOID SecurityQualityOfService;
 } *POBJECT_ATTRIBUTES;
+
+typedef struct OBJECT_NAME_INFORMATION
+{
+    UNICODE_STRING Name;
+//    WCHAR NameBuffer[MAX_PATH];
+} *POBJECT_NAME_INFORMATION;
 
 #endif

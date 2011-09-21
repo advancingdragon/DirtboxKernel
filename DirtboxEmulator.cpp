@@ -93,6 +93,10 @@ VOID Dirtbox::InitializeKernel()
     XboxKrnlVersion.Build = 0x154F;
     XboxKrnlVersion.Qfe = 0x8001;
 
+    HalBootSMCVideoMode = 7;
+
+    IdexChannelObject = 0;
+
     // replace kernel import ordinals with pointer to our functions
     PDWORD KernelImageThunks = (PDWORD)(XBE_KERNEL_THUNK ^ XBE_KERNEL_THUNK_KEY);
     DWORD Thunk;
@@ -394,6 +398,12 @@ VOID Dirtbox::InitializeKernel()
         case 238:
             KernelImageThunks[i] = (DWORD)&NtYieldExecution;
             break;
+        case 246:
+            KernelImageThunks[i] = (DWORD)&ObReferenceObjectByHandle;
+            break;
+        case 250:
+            KernelImageThunks[i] = (DWORD)&ObfDereferenceObject;
+            break;
         case 255:
             KernelImageThunks[i] = (DWORD)&PsCreateSystemThreadEx;
             break;
@@ -427,6 +437,15 @@ VOID Dirtbox::InitializeKernel()
         case 302:
             KernelImageThunks[i] = (DWORD)&RtlRaiseException;
             break;
+        case 304:
+            KernelImageThunks[i] = (DWORD)&RtlTimeFieldsToTime;
+            break;
+        case 305:
+            KernelImageThunks[i] = (DWORD)&RtlTimeToTimeFields;
+            break;
+        case 306:
+            KernelImageThunks[i] = (DWORD)&RtlTryEnterCriticalSection;
+            break;
         case 312:
             KernelImageThunks[i] = (DWORD)&RtlUnwind;
             break;
@@ -459,6 +478,9 @@ VOID Dirtbox::InitializeKernel()
             break;
         case 340:
             KernelImageThunks[i] = (DWORD)&XcHMAC;
+            break;
+        case 356:
+            KernelImageThunks[i] = (DWORD)&HalBootSMCVideoMode;
             break;
         case 357:
             KernelImageThunks[i] = (DWORD)&IdexChannelObject;

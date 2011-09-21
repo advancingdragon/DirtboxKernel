@@ -316,6 +316,13 @@ namespace Dirtbox
     );
     NTSTATUS WINAPI NtYieldExecution();
 
+    NTSTATUS WINAPI ObReferenceObjectByHandle(
+        HANDLE Handle, POBJECT_TYPE ObjectType, PVOID *ReturnedObject
+    );
+    VOID __fastcall ObfDereferenceObject(
+        PVOID Object
+    );
+
     NTSTATUS WINAPI PsCreateSystemThreadEx(
         PHANDLE ThreadHandle, DWORD ThreadExtensionSize, DWORD KernelStackSize, DWORD TlsDataSize, 
         PDWORD ThreadId, PKSTART_ROUTINE StartRoutine, PVOID StartContext, BOOLEAN CreateSuspended, 
@@ -350,6 +357,15 @@ namespace Dirtbox
     VOID WINAPI RtlRaiseException(
         PEXCEPTION_RECORD ExceptionRecord
     );
+    BOOLEAN WINAPI RtlTimeFieldsToTime(
+        PTIME_FIELDS TimeFields, PLARGE_INTEGER Time
+    );
+    VOID WINAPI RtlTimeToTimeFields(
+        PLARGE_INTEGER Time, PTIME_FIELDS TimeFields
+    );
+    BOOLEAN WINAPI RtlTryEnterCriticalSection(
+        PXBOX_CRITICAL_SECTION CriticalSection
+    );
     VOID WINAPI RtlUnwind(
         PVOID TargetFrame, PVOID TargetIp, PEXCEPTION_RECORD ExceptionRecord, PVOID ReturnValue
     );
@@ -380,6 +396,7 @@ namespace Dirtbox
         PCHAR Data2, DWORD DwordData2, PCHAR Digest
     );
 
+    extern DWORD HalBootSMCVideoMode;
     extern DWORD IdexChannelObject;
     VOID WINAPI HalInitiateShutdown();
 }

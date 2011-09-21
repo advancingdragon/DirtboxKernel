@@ -69,6 +69,11 @@ NTSTATUS WINAPI NtQueryInformationFile(
     FILE_INFORMATION_CLASS FileInformationClass
 );
 
+NTSTATUS WINAPI NtQueryObject(
+    HANDLE ObjectHandle, OBJECT_INFORMATION_CLASS ObjectInformationClass, 
+    PVOID ObjectInformation, DWORD ObjectInformationLength, PDWORD ReturnLength
+);
+
 NTSTATUS WINAPI NtQuerySystemTime(
     PLARGE_INTEGER SystemTime
 );
@@ -182,6 +187,14 @@ DWORD WINAPI RtlNtStatusToDosError(
 
 VOID WINAPI RtlRaiseException(
     PEXCEPTION_RECORD ExceptionRecord
+);
+
+BOOLEAN WINAPI RtlTimeFieldsToTime(
+    PTIME_FIELDS TimeFields, PLARGE_INTEGER Time
+);
+
+VOID WINAPI RtlTimeToTimeFields(
+    PLARGE_INTEGER Time, PTIME_FIELDS TimeFields
 );
 
 VOID WINAPI RtlUnwind(

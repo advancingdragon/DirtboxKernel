@@ -20,6 +20,7 @@ namespace Dirtbox
     CHAR XboxHDKey[16];
     XBOX_KRNL_VERSION XboxKrnlVersion;
     DWORD XeImageFileName;
+    DWORD HalBootSMCVideoMode;
     DWORD IdexChannelObject;
 
     PVOID AvpSavedDataAddress = (PVOID)0;
@@ -1552,6 +1553,49 @@ NTSTATUS WINAPI Dirtbox::NtYieldExecution()
     return Res;
 }
 
+NTSTATUS WINAPI Dirtbox::ObReferenceObjectByHandle(
+    HANDLE Handle, POBJECT_TYPE ObjectType, PVOID *ReturnedObject
+)
+{
+    SwapTibs();
+
+    DebugPrint("ObReferenceObjectByHandle: 0x%08x 0x%08x 0x%08x", 
+        Handle, ObjectType, ReturnedObject);
+
+    if (ObjectType == &PsThreadObjectType)
+    {
+        // TODO
+        *ReturnedObject = NULL;
+        SwapTibs();
+        return STATUS_UNSUCCESSFUL;
+    }
+    else
+    {
+        OBJECT_NAME_INFORMATION Info;
+        NTSTATUS Res = ::NtQueryObject(
+            Handle, ObjectNameInformation, &Info, sizeof(OBJECT_NAME_INFORMATION), NULL
+        );
+        if (!NT_SUCCESS(Res))
+            *ReturnedObject = NULL;
+        else
+            *ReturnedObject = (PVOID)_wtol(Info.Name.Buffer + 8);
+        // 8 == length of "Dirtbox_"
+        SwapTibs();
+        return Res;
+    }
+}
+
+VOID __fastcall Dirtbox::ObfDereferenceObject(
+    PVOID Object
+)
+{
+    SwapTibs();
+
+    DebugPrint("ObfDereferenceObject: 0x%08x", Object);
+
+    SwapTibs();
+}
+
 NTSTATUS WINAPI Dirtbox::PsCreateSystemThreadEx(
     PHANDLE ThreadHandle, DWORD ThreadExtensionSize, DWORD KernelStackSize, DWORD TlsDataSize, 
     PDWORD ThreadId, PKSTART_ROUTINE StartRoutine, PVOID StartContext, BOOLEAN CreateSuspended, 
@@ -1773,13 +1817,77 @@ VOID WINAPI Dirtbox::RtlRaiseException(
 {
     SwapTibs();
 
-
     DebugPrint("RtlRaiseException: 0x%08x", ExceptionRecord);
 
     // WARNING! WE MAY NEED TO COPY STUFF FROM XBOX TIB INTO NT TIB!
     ::RtlRaiseException(ExceptionRecord);
 
     SwapTibs();
+}
+
+BOOLEAN WINAPI Dirtbox::RtlTimeFieldsToTime(
+    PTIME_FIELDS TimeFields, PLARGE_INTEGER Time
+)
+{
+    SwapTibs();
+
+    DebugPrint("RtlTimeFieldsToTime: 0x%08x 0x%08x", TimeFields, Time);
+
+    BOOLEAN Res = ::RtlTimeFieldsToTime(TimeFields, Time);
+
+    SwapTibs();
+    return Res;
+}
+
+VOID WINAPI Dirtbox::RtlTimeToTimeFields(
+    PLARGE_INTEGER Time, PTIME_FIELDS TimeFields
+)
+{
+    SwapTibs();
+
+
+    DebugPrint("RtlTimeToTimeFields: 0x%08x 0x%08x", Time, TimeFields);
+
+    ::RtlTimeToTimeFields(Time, TimeFields);
+
+    SwapTibs();
+}
+
+BOOLEAN WINAPI Dirtbox::RtlTryEnterCriticalSection(
+    PXBOX_CRITICAL_SECTION CriticalSection
+)
+{
+    PKPCR Kpcr = (PKPCR)__readfsdword(KPCR_SELF_PCR);
+
+    SwapTibs();
+
+    DebugPrint("RtlTryEnterCriticalSection: 0x%08x", CriticalSection);
+
+    BOOLEAN Res;
+    /* Try to take control */
+    if (InterlockedCompareExchange(&CriticalSection->LockCount, 0, -1) == -1)
+    {
+        /* It's ours */
+        CriticalSection->OwningThread = Kpcr->Prcb->CurrentThread;
+        CriticalSection->RecursionCount = 1;
+        return TRUE;
+
+    }
+    else if (CriticalSection->OwningThread == Kpcr->Prcb->CurrentThread)
+    {
+        /* It's already ours */
+        InterlockedIncrement(&CriticalSection->LockCount);
+        CriticalSection->RecursionCount++;
+        return TRUE;
+    }
+    else
+    {
+        /* It's not ours */
+        Res = FALSE;
+    }
+
+    SwapTibs();
+    return Res;
 }
 
 VOID WINAPI Dirtbox::RtlUnwind(
