@@ -275,6 +275,9 @@ VOID Dirtbox::InitializeKernel()
         case 159:
             KernelImageThunks[i] = (DWORD)&KeWaitForSingleObject;
             break;
+        case 160:
+            KernelImageThunks[i] = (DWORD)&KfRaiseIrql;
+            break;
         case 161:
             KernelImageThunks[i] = (DWORD)&KfLowerIrql;
             break;

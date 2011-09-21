@@ -177,6 +177,7 @@ namespace Dirtbox
         PLARGE_INTEGER Timeout
     );
 
+    DWORD __fastcall KfRaiseIrql(KIRQL NewIrql);
     DWORD __fastcall KfLowerIrql(KIRQL NewIrql);
 
     extern DWORD LaunchDataPage;

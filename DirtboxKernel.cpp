@@ -822,6 +822,25 @@ NTSTATUS WINAPI Dirtbox::KeWaitForSingleObject(
     return STATUS_SUCCESS;
 }
 
+DWORD __fastcall Dirtbox::KfRaiseIrql(KIRQL NewIrql)
+{
+    PKPCR Kpcr;
+    __asm
+    {
+        mov eax, fs:[0x1C]
+        mov Kpcr, eax
+    }
+
+    SwapTibs();
+
+    DebugPrint("KfRaiseIrql: %i", NewIrql);
+
+    Kpcr->Irql = NewIrql;
+
+    SwapTibs();
+    return 0;
+}
+
 DWORD __fastcall Dirtbox::KfLowerIrql(KIRQL NewIrql)
 {
     PKPCR Kpcr;
