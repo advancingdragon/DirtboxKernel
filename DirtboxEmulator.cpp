@@ -508,6 +508,8 @@ VOID Dirtbox::DebugPrint(PSTR Format, ...)
     va_end(Args);
     putchar('\n');
 
+    fflush(stdout);
+
     LeaveCriticalSection(&PrintLock);
 }
 
@@ -521,6 +523,8 @@ VOID Dirtbox::FatalPrint(PSTR Format, ...)
     vprintf(Format, Args);
     va_end(Args);
     putchar('\n');
+
+    fflush(stdout);
 
     LeaveCriticalSection(&PrintLock);
 

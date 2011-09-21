@@ -146,7 +146,8 @@ NTSTATUS WINAPI Dirtbox::ExQueryNonVolatileSetting(
 {
     SwapTibs();
 
-    DebugPrint("ExQueryNonVolatileSetting: %i ...", ValueIndex);
+    DebugPrint("ExQueryNonVolatileSetting: %i 0x%08x 0x%08x 0x%x 0x%08x", 
+        ValueIndex, Type, Value, ValueLength, ResultLength);
 
     NTSTATUS Res = STATUS_SUCCESS;
 
@@ -1067,8 +1068,6 @@ NTSTATUS WINAPI Dirtbox::NtAllocateVirtualMemory(
         GetCurrentProcess(), BaseAddress, ZeroBits, AllocationSize, 
         AllocationType, Protect);
 
-    DebugPrint("Returned: 0x%08x", Res);
-    
     SwapTibs();
     return Res;
 }
