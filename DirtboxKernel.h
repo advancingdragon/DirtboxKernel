@@ -40,8 +40,6 @@ namespace Dirtbox
     );
 
     extern DWORD HalDiskCachePartitionCount;
-    extern ANSI_STRING HalDiskModelNumber;
-    extern ANSI_STRING HalDiskSerialNumber;
     DWORD WINAPI HalGetInterruptVector(
         DWORD BusInterruptLevel, PKIRQL Irql
     );
@@ -56,45 +54,8 @@ namespace Dirtbox
         RETURN_FIRMWARE Routine
     );
 
-    PIRP WINAPI IoBuildSynchronousFsdRequest(
-        DWORD MajorFunction, PDEVICE_OBJECT DeviceObject, PVOID Buffer, DWORD Length, 
-        PLARGE_INTEGER StartingOffset, PKEVENT Event, PIO_STATUS_BLOCK IoStatusBlock
-    );
-    NTSTATUS WINAPI IoCreateDevice(
-        PDRIVER_OBJECT DriverObject, DWORD DeviceExtensionSize, PANSI_STRING DeviceName, 
-        DWORD DeviceType, BOOLEAN Exclusive, PDEVICE_OBJECT *DeviceObject
-    );
     NTSTATUS WINAPI IoCreateSymbolicLink(
         PANSI_STRING SymbolicLinkName, PANSI_STRING DeviceName
-    );
-    NTSTATUS WINAPI IoDeleteSymbolicLink(
-        PANSI_STRING SymbolicLinkName
-    );
-    extern OBJECT_TYPE IoFileObjectType;
-    NTSTATUS WINAPI IoInvalidDeviceRequest(
-        PDEVICE_OBJECT DeviceObject, PIRP Irp
-    );
-    VOID WINAPI IoStartNextPacket(
-        PDEVICE_OBJECT DeviceObject
-    );
-    VOID WINAPI IoStartPacket(
-        PDEVICE_OBJECT DeviceObject, PIRP Irp, PDWORD Key
-    );
-    NTSTATUS WINAPI IoSynchronousDeviceIoControlRequest(
-        DWORD IoControlCode, PDEVICE_OBJECT DeviceObject, 
-        PVOID InputBuffer, DWORD InputBufferLength, PVOID OutputBuffer, DWORD OutputBufferLength, 
-        PDWORD ReturnedOutputBufferLength, CHAR InternalDeviceIoControl
-    );
-    NTSTATUS WINAPI IoSynchronousFsdRequest(
-        DWORD MajorFunction, PDEVICE_OBJECT DeviceObject, PVOID Buffer, DWORD Length, 
-        PLARGE_INTEGER StartingOffset
-    );
-
-    NTSTATUS __fastcall IofCallDriver(
-        PDEVICE_OBJECT DeviceObject, PIRP Irp
-    );
-    VOID __fastcall IofCompleteRequest(
-        PIRP Irp, CHAR PriorityBoost
     );
 
     VOID WINAPI KeBugCheck(
@@ -372,29 +333,13 @@ namespace Dirtbox
     );
 
     extern XBOX_HARDWARE_INFO XboxHardwareInfo;
-    extern CHAR XboxHDKey[];
     extern XBOX_KRNL_VERSION XboxKrnlVersion;
 
-    extern DWORD XeImageFileName;
     NTSTATUS WINAPI XeLoadSection(
         PXBEIMAGE_SECTION Section
     );
     NTSTATUS WINAPI XeUnloadSection(
         PXBEIMAGE_SECTION Section
-    );
-
-    VOID WINAPI XcSHAInit(
-        PCHAR SHAContext
-    );
-    VOID WINAPI XcSHAUpdate(
-        PCHAR SHAContext, PCHAR Input, DWORD InputLength
-    );
-    VOID WINAPI XcSHAFinal(
-        PCHAR SHAContext, PCHAR Digest
-    );
-    VOID WINAPI XcHMAC(
-        PCHAR KeyMaterial, DWORD DwordKeyMaterial, PCHAR Data, DWORD DwordData, 
-        PCHAR Data2, DWORD DwordData2, PCHAR Digest
     );
 
     extern DWORD HalBootSMCVideoMode;

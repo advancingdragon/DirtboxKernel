@@ -53,22 +53,6 @@ VOID Dirtbox::InitializeKernel()
 
     HalDiskCachePartitionCount = 3;
 
-    HalDiskModelNumber.Length = 0;
-    HalDiskModelNumber.MaximumLength = 0;
-    HalDiskModelNumber.Buffer = NULL;
-
-    HalDiskSerialNumber.Length = 0;
-    HalDiskSerialNumber.MaximumLength = 0;
-    HalDiskSerialNumber.Buffer = NULL;
-
-    IoFileObjectType.AllocateProcedure = &ExAllocatePoolWithTag;
-    IoFileObjectType.FreeProcedure = &ExFreePool;
-    IoFileObjectType.CloseProcedure = NULL; // TODO
-    IoFileObjectType.DeleteProcedure = NULL; // TODO
-    IoFileObjectType.ParseProcedure = NULL; // TODO
-    IoFileObjectType.DefaultObject = (PVOID)0x38;
-    IoFileObjectType.PoolTag = 0x656C6946;
-
     KeTickCount.LowPart = 0;
     KeTickCount.High1Time = 0;
     KeTickCount.High2Time = 0;
@@ -86,8 +70,6 @@ VOID Dirtbox::InitializeKernel()
     XboxHardwareInfo.Flags = 0x202;
     XboxHardwareInfo.GpuRevision = 0;
     XboxHardwareInfo.McpRevision = 0;
-
-    memset(XboxHDKey, 0, 16);
 
     XboxKrnlVersion.Major = 1;
     XboxKrnlVersion.Minor = 0;
@@ -141,12 +123,6 @@ VOID Dirtbox::InitializeKernel()
         case 40:
             KernelImageThunks[i] = (DWORD)&HalDiskCachePartitionCount;
             break;
-        case 41:
-            KernelImageThunks[i] = (DWORD)&HalDiskModelNumber;
-            break;
-        case 42:
-            KernelImageThunks[i] = (DWORD)&HalDiskSerialNumber;
-            break;
         case 44:
             KernelImageThunks[i] = (DWORD)&HalGetInterruptVector;
             break;
@@ -159,41 +135,8 @@ VOID Dirtbox::InitializeKernel()
         case 49:
             KernelImageThunks[i] = (DWORD)&HalReturnToFirmware;
             break;
-        case 62:
-            KernelImageThunks[i] = (DWORD)&IoBuildSynchronousFsdRequest;
-            break;
-        case 65:
-            KernelImageThunks[i] = (DWORD)&IoCreateDevice;
-            break;
         case 67:
             KernelImageThunks[i] = (DWORD)&IoCreateSymbolicLink;
-            break;
-        case 69:
-            KernelImageThunks[i] = (DWORD)&IoDeleteSymbolicLink;
-            break;
-        case 71:
-            KernelImageThunks[i] = (DWORD)&IoFileObjectType;
-            break;
-        case 74:
-            KernelImageThunks[i] = (DWORD)&IoInvalidDeviceRequest;
-            break;
-        case 81:
-            KernelImageThunks[i] = (DWORD)&IoStartNextPacket;
-            break;
-        case 83:
-            KernelImageThunks[i] = (DWORD)&IoStartPacket;
-            break;
-        case 84:
-            KernelImageThunks[i] = (DWORD)&IoSynchronousDeviceIoControlRequest;
-            break;
-        case 85:
-            KernelImageThunks[i] = (DWORD)&IoSynchronousFsdRequest;
-            break;
-        case 86:
-            KernelImageThunks[i] = (DWORD)&IofCallDriver;
-            break;
-        case 87:
-            KernelImageThunks[i] = (DWORD)&IofCompleteRequest;
             break;
         case 95:
             KernelImageThunks[i] = (DWORD)&KeBugCheck;
@@ -456,32 +399,14 @@ VOID Dirtbox::InitializeKernel()
         case 322:
             KernelImageThunks[i] = (DWORD)&XboxHardwareInfo;
             break;
-        case 323:
-            KernelImageThunks[i] = (DWORD)XboxHDKey; // Array is already pointer
-            break;
         case 324:
             KernelImageThunks[i] = (DWORD)&XboxKrnlVersion;
-            break;
-        case 326:
-            KernelImageThunks[i] = (DWORD)&XeImageFileName;
             break;
         case 327:
             KernelImageThunks[i] = (DWORD)&XeLoadSection;
             break;
         case 328:
             KernelImageThunks[i] = (DWORD)&XeUnloadSection;
-            break;
-        case 335:
-            KernelImageThunks[i] = (DWORD)&XcSHAInit;
-            break;
-        case 336:
-            KernelImageThunks[i] = (DWORD)&XcSHAUpdate;
-            break;
-        case 337:
-            KernelImageThunks[i] = (DWORD)&XcSHAFinal;
-            break;
-        case 340:
-            KernelImageThunks[i] = (DWORD)&XcHMAC;
             break;
         case 356:
             KernelImageThunks[i] = (DWORD)&HalBootSMCVideoMode;

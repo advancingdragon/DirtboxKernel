@@ -10,16 +10,11 @@ namespace Dirtbox
 {
     OBJECT_TYPE ExEventObjectType;
     DWORD HalDiskCachePartitionCount;
-    ANSI_STRING HalDiskModelNumber;
-    ANSI_STRING HalDiskSerialNumber;
-    OBJECT_TYPE IoFileObjectType;
     KSYSTEM_TIME KeTickCount;
     DWORD LaunchDataPage;
     OBJECT_TYPE PsThreadObjectType;
     XBOX_HARDWARE_INFO XboxHardwareInfo;
-    CHAR XboxHDKey[16];
     XBOX_KRNL_VERSION XboxKrnlVersion;
-    DWORD XeImageFileName;
     DWORD HalBootSMCVideoMode;
     DWORD IdexChannelObject;
 
@@ -241,35 +236,6 @@ VOID WINAPI Dirtbox::HalReturnToFirmware(
     exit(0);
 }
 
-PIRP WINAPI Dirtbox::IoBuildSynchronousFsdRequest(
-    DWORD MajorFunction, PDEVICE_OBJECT DeviceObject, PVOID Buffer, DWORD Length, 
-    PLARGE_INTEGER StartingOffset, PKEVENT Event, PIO_STATUS_BLOCK IoStatusBlock
-)
-{
-    SwapTibs();
-
-    DebugPrint("IoBuildSynchronousFsdRequest: 0x%x 0x%08x 0x%08x 0x%x 0x%08x 0x%08x 0x%08x", 
-        MajorFunction, DeviceObject, Buffer, Length, StartingOffset, Event, IoStatusBlock);
-
-    SwapTibs();
-    return NULL;
-}
-
-NTSTATUS WINAPI Dirtbox::IoCreateDevice(
-    PDRIVER_OBJECT DriverObject, DWORD DeviceExtensionSize, PANSI_STRING DeviceName, 
-    DWORD DeviceType, BOOLEAN Exclusive, PDEVICE_OBJECT *DeviceObject
-)
-{
-    SwapTibs();
-
-    DebugPrint("IoCreateDevice: 0x%08x 0x%x \"%s\" 0x%x %i 0x%08x", 
-        DriverObject, DeviceExtensionSize, DeviceName->Buffer, DeviceType, 
-        Exclusive, DeviceObject);
-
-    SwapTibs();
-    return STATUS_UNSUCCESSFUL;
-}
-
 NTSTATUS WINAPI Dirtbox::IoCreateSymbolicLink(
     PANSI_STRING SymbolicLinkName,
     PANSI_STRING DeviceName
@@ -284,109 +250,6 @@ NTSTATUS WINAPI Dirtbox::IoCreateSymbolicLink(
 
     SwapTibs();
     return STATUS_SUCCESS;
-}
-
-NTSTATUS WINAPI Dirtbox::IoDeleteSymbolicLink(
-    PANSI_STRING SymbolicLinkName
-)
-{
-    SwapTibs();
-
-    DebugPrint("IoDeleteSymbolicLink: \"%s\"", 
-        SymbolicLinkName->Buffer);
-
-    // We can ignore this so far, since DOS drives created already.
-
-    SwapTibs();
-    return STATUS_SUCCESS;
-}
-
-NTSTATUS WINAPI Dirtbox::IoInvalidDeviceRequest(
-    PDEVICE_OBJECT DeviceObject, PIRP Irp
-)
-{
-    SwapTibs();
-
-    DebugPrint("IoInvalidDeviceRequest: 0x%08x 0x%08x", DeviceObject, Irp);
-
-    SwapTibs();
-    return STATUS_UNSUCCESSFUL;
-}
-
-VOID WINAPI Dirtbox::IoStartNextPacket(
-    PDEVICE_OBJECT DeviceObject
-)
-{
-    SwapTibs();
-
-    DebugPrint("IoStartNextPacket: 0x%08x", DeviceObject);
-
-    SwapTibs();
-}
-
-VOID WINAPI Dirtbox::IoStartPacket(
-    PDEVICE_OBJECT DeviceObject, PIRP Irp, PDWORD Key
-)
-{
-    SwapTibs();
-
-    DebugPrint("IoStartPacket: 0x%08x 0x%08x 0x%08x", DeviceObject, Irp, Key);
-
-    SwapTibs();
-}
-
-NTSTATUS WINAPI Dirtbox::IoSynchronousDeviceIoControlRequest(
-    DWORD IoControlCode, PDEVICE_OBJECT DeviceObject, 
-    PVOID InputBuffer, DWORD InputBufferLength, PVOID OutputBuffer, DWORD OutputBufferLength, 
-    PDWORD ReturnedOutputBufferLength, CHAR InternalDeviceIoControl
-)
-{
-    SwapTibs();
-
-    DebugPrint("IoSynchronousDeviceIoControlRequest: 0x%x 0x%08x 0x%08x 0x%x 0x%08x 0x%x " 
-        "0x%08x %i", 
-        IoControlCode, DeviceObject, InputBuffer, InputBufferLength, 
-        OutputBuffer, OutputBufferLength, ReturnedOutputBufferLength, InternalDeviceIoControl);
-
-    SwapTibs();
-    return STATUS_UNSUCCESSFUL;
-}
-
-NTSTATUS WINAPI Dirtbox::IoSynchronousFsdRequest(
-    DWORD MajorFunction, PDEVICE_OBJECT DeviceObject, PVOID Buffer, DWORD Length, 
-    PLARGE_INTEGER StartingOffset
-)
-{
-    SwapTibs();
-
-    DebugPrint("IoSynchronousFsdRequest: 0x%x 0x%08x 0x%08x 0x%x 0x%08x", 
-        MajorFunction, DeviceObject, Buffer, Length, StartingOffset);
-
-    SwapTibs();
-    return STATUS_UNSUCCESSFUL;
-}
-
-NTSTATUS __fastcall Dirtbox::IofCallDriver(
-    PDEVICE_OBJECT DeviceObject, PIRP Irp
-)
-{
-    SwapTibs();
-
-    DebugPrint("IofCallDriver: 0x%08x 0x%08x", DeviceObject, Irp);
-
-    SwapTibs();
-    return STATUS_UNSUCCESSFUL;
-}
-
-VOID __fastcall Dirtbox::IofCompleteRequest(
-    PIRP Irp, CHAR PriorityBoost
-)
-{
-    SwapTibs();
-
-    DebugPrint("IofCompleteRequest: 0x%08x %i", Irp, PriorityBoost);
-
-    SwapTibs();
 }
 
 VOID WINAPI Dirtbox::KeBugCheck(
@@ -1949,60 +1812,6 @@ NTSTATUS WINAPI Dirtbox::XeUnloadSection(
 
     SwapTibs();
     return 0;
-}
-
-VOID WINAPI Dirtbox::XcSHAInit(
-    PCHAR SHAContext
-)
-{
-    SwapTibs();
-
-    DebugPrint("XcSHAInit: 0x%08x", SHAContext);
-
-    // don't nead crypto yet
-
-    SwapTibs();
-}
-
-VOID WINAPI Dirtbox::XcSHAUpdate(
-    PCHAR SHAContext, PCHAR Input, DWORD InputLength
-)
-{
-    SwapTibs();
-
-    DebugPrint("XcSHAUpdate: 0x%08x 0x%08x 0x%x", SHAContext, Input, InputLength);
-
-    // don't nead crypto yet
-
-    SwapTibs();
-}
-
-VOID WINAPI Dirtbox::XcSHAFinal(
-    PCHAR SHAContext, PCHAR Digest
-)
-{
-    SwapTibs();
-
-    DebugPrint("XcSHAFinal: 0x%08x 0x%08x", SHAContext, Digest);
-
-    // don't nead crypto yet
-
-    SwapTibs();
-}
-
-VOID WINAPI Dirtbox::XcHMAC(
-    PCHAR KeyMaterial, DWORD DwordKeyMaterial, PCHAR Data, DWORD DwordData, 
-    PCHAR Data2, DWORD DwordData2, PCHAR Digest
-)
-{
-    SwapTibs();
-
-    DebugPrint("XcHMAC: 0x%08x 0x%x 0x%08x 0x%x 0x%08x 0x%x 0x%08x", 
-        KeyMaterial, DwordKeyMaterial, Data, DwordData, Data2, DwordData2, Digest);
-
-    // don't nead crypto yet
-
-    SwapTibs();
 }
 
 VOID WINAPI Dirtbox::HalInitiateShutdown()
