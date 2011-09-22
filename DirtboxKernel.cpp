@@ -468,13 +468,7 @@ VOID WINAPI Dirtbox::KeQuerySystemTime(
 
 KIRQL WINAPI Dirtbox::KeRaiseIrqlToDpcLevel()
 {
-    PKPCR Kpcr;
-    __asm
-    {
-        mov eax, fs:[0x1C]
-        mov Kpcr, eax
-    }
-
+    PKPCR Kpcr = (PKPCR)__readfsdword(KPCR_SELF_PCR);
     SwapTibs();
 
     DebugPrint("KeRaiseIrqlToDpcLevel");
