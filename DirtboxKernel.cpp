@@ -688,13 +688,7 @@ NTSTATUS WINAPI Dirtbox::KeWaitForSingleObject(
 
 DWORD __fastcall Dirtbox::KfRaiseIrql(KIRQL NewIrql)
 {
-    PKPCR Kpcr;
-    __asm
-    {
-        mov eax, fs:[0x1C]
-        mov Kpcr, eax
-    }
-
+    PKPCR Kpcr = (PKPCR)__readfsdword(KPCR_SELF_PCR);
     SwapTibs();
 
     DebugPrint("KfRaiseIrql: %i", NewIrql);
@@ -707,13 +701,7 @@ DWORD __fastcall Dirtbox::KfRaiseIrql(KIRQL NewIrql)
 
 DWORD __fastcall Dirtbox::KfLowerIrql(KIRQL NewIrql)
 {
-    PKPCR Kpcr;
-    __asm
-    {
-        mov eax, fs:[0x1C]
-        mov Kpcr, eax
-    }
-
+    PKPCR Kpcr = (PKPCR)__readfsdword(KPCR_SELF_PCR);
     SwapTibs();
 
     DebugPrint("KfLowerIrql: %i", NewIrql);
