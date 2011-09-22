@@ -23,6 +23,7 @@ VOID WINAPI Dirtbox::Initialize()
 
     InitializeException();
     InitializeDummyKernel();
+    InitializeUsb();
     InitializeDrives();
     InitializeThreading();
     __writefsword(NT_TIB_USER_POINTER, GetFS());

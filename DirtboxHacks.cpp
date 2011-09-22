@@ -81,7 +81,7 @@ VOID Dirtbox::InitializeDummyKernel()
         MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE
     );
     if (DummyKernel == NULL)
-        FatalPrint("InitializeDummyKernel: Could not turn allocate dummy kernel.");
+        FatalPrint("InitializeDummyKernel: Could not allocate dummy kernel.");
     memset(DummyKernel, 0, sizeof(DUMMY_KERNEL));
 
     // XapiRestrictCodeSelectorLimit only checks these fields.
@@ -92,6 +92,19 @@ VOID Dirtbox::InitializeDummyKernel()
     strncpy_s((PSTR)DummyKernel->SectionHeader.Name, 8, "DONGS", 8);
 
     DebugPrint("InitializeDummyKernel: Dummy kernel initialized successfully.");
+}
+
+VOID Dirtbox::InitializeUsb()
+{
+    PVOID UsbRegisters = (PDUMMY_KERNEL)VirtualAlloc(
+        (PVOID)0x86000000, 0x10000, 
+        MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE
+    );
+    if (UsbRegisters == NULL)
+        FatalPrint("InitializeUsb: Could not allocate USB registers.");
+    memset(UsbRegisters, 0, 0x10000);
+
+    DebugPrint("InitializeUsb: USB registers initialized successfully.");
 }
 
 VOID Dirtbox::InitializeDrives()

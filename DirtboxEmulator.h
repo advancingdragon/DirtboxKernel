@@ -19,6 +19,7 @@ namespace Dirtbox
 
     VOID InitializeException();
     VOID InitializeDummyKernel();
+    VOID InitializeUsb();
     VOID InitializeDrives();
     BOOLEAN IsValidDosPath(PANSI_STRING String);
     NTSTATUS ConvertObjectAttributes(
