@@ -68,7 +68,7 @@ namespace Dirtbox
         PKINTERRUPT Interrupt
     );
     NTSTATUS WINAPI KeDelayExecutionThread(
-        CHAR WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Interval
+        KPROCESSOR_MODE WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Interval
     );
     BOOLEAN WINAPI KeDisconnectInterrupt(
         PKINTERRUPT Interrupt

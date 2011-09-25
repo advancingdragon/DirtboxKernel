@@ -11,10 +11,6 @@ NTSTATUS WINAPI NtAllocateVirtualMemory(
     DWORD AllocationType, DWORD Protect
 );
 
-NTSTATUS WINAPI NtCancelTimer(
-    HANDLE TimerHandle, PBOOLEAN CurrentState
-);
-
 NTSTATUS WINAPI NtClose(
     HANDLE Handle
 );
@@ -110,19 +106,8 @@ NTSTATUS WINAPI NtSetLdtEntries(
     DWORD Selector, LDT_ENTRY Entry, DWORD a, DWORD b, DWORD c
 );
 
-NTSTATUS WINAPI NtSetTimer(
-    HANDLE TimerHandle, PLARGE_INTEGER DueTime, 
-    PTIMER_APC_ROUTINE TimerApcRoutine, PVOID TimerContext, BOOLEAN ResumeTimer, 
-    LONG Period, PBOOLEAN PreviousState
-);
-
 NTSTATUS WINAPI NtSuspendThread(
     HANDLE ThreadHandle, PDWORD PreviousSuspendCount
-);
-
-NTSTATUS WINAPI NtWaitForMultipleObjects(
-    DWORD ObjectCount, PHANDLE ObjectsArray, WAIT_TYPE WaitType, BOOLEAN Alertable,
-    PLARGE_INTEGER Timeout
 );
 
 DWORD WINAPI NtWaitForSingleObject(
@@ -150,10 +135,6 @@ SIZE_T WINAPI RtlCompareMemoryUlong(
     PVOID Source, SIZE_T Length, DWORD Pattern
 );
 
-NTSTATUS WINAPI RtlEnterCriticalSection(
-    PRTL_CRITICAL_SECTION CriticalSection
-);
-
 LONG WINAPI RtlEqualString(
     PANSI_STRING String1, PANSI_STRING String2, BOOLEAN CaseInSensitive
 );
@@ -172,14 +153,6 @@ static inline VOID RtlInitEmptyUnicodeString(
     DestinationString->MaximumLength = BufferSize;
     DestinationString->Buffer = Buffer;
 }
-
-VOID WINAPI RtlInitializeCriticalSection(
-    PRTL_CRITICAL_SECTION CriticalSection
-);
-
-VOID WINAPI RtlLeaveCriticalSection(
-    PRTL_CRITICAL_SECTION CriticalSection
-);
 
 DWORD WINAPI RtlNtStatusToDosError(
     NTSTATUS Status

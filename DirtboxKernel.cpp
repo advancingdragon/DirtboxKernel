@@ -269,10 +269,10 @@ BOOLEAN WINAPI Dirtbox::KeCancelTimer(
 
     DebugPrint("KeCancelTimer: 0x%08x", Timer);
 
-    NTSTATUS Res = ::NtCancelTimer(GetDirtObject(Timer), NULL);
+    BOOLEAN Res = CancelWaitableTimer(GetDirtObject(Timer));
 
     SwapTibs();
-    return NT_SUCCESS(Res);
+    return Res;
 }
 
 BOOLEAN WINAPI Dirtbox::KeConnectInterrupt(
@@ -296,7 +296,7 @@ BOOLEAN WINAPI Dirtbox::KeConnectInterrupt(
 }
 
 NTSTATUS WINAPI Dirtbox::KeDelayExecutionThread(
-    CHAR WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Interval
+    KPROCESSOR_MODE WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Interval
 )
 {
     SwapTibs();
@@ -579,10 +579,10 @@ BOOLEAN WINAPI Dirtbox::KeSetEvent(
         FatalPrint("KeSetEvent: Events with more than two threads not supported.");
 
     // Event->Header.SignalState = 1;
-    NTSTATUS Res = ::NtSetEvent(GetDirtObject(Event), NULL);
+    BOOLEAN Res = SetEvent(GetDirtObject(Event));
 
     SwapTibs();
-    return NT_SUCCESS(Res);
+    return Res;
 }
 
 BOOLEAN WINAPI Dirtbox::KeSetTimer(
@@ -601,12 +601,10 @@ BOOLEAN WINAPI Dirtbox::KeSetTimerEx(
     DebugPrint("KeSetTimerEx: 0x%08x 0x%08x %i 0x%08x", Timer, DueTime, Period, Dpc);
 
     // TODO: Handle APCs/DPCs
-    NTSTATUS Res = ::NtSetTimer(
-        GetDirtObject(Timer), &DueTime, NULL, NULL, FALSE, Period, NULL
-    );
+    BOOLEAN Res = SetWaitableTimer(GetDirtObject(Timer), &DueTime, Period, NULL, NULL, FALSE);
 
     SwapTibs();
-    return NT_SUCCESS(Res);
+    return Res;
 }
 
 VOID WINAPI Dirtbox::KeStallExecutionProcessor(
@@ -617,7 +615,9 @@ VOID WINAPI Dirtbox::KeStallExecutionProcessor(
 
     DebugPrint("KeStallExecutionProcessor: %i", MicroSeconds);
     
-    // TODO
+    LARGE_INTEGER Interval;
+    Interval.QuadPart = MicroSeconds * -10;
+    ::NtDelayExecution(FALSE, &Interval);
 
     SwapTibs();
 }
@@ -648,15 +648,15 @@ NTSTATUS WINAPI Dirtbox::KeWaitForMultipleObjects(
     DebugPrint("KeWaitForMultipleObjects: 0x%x 0x%08x %i %i %i %i 0x%08x 0x%08x", 
         Count, Object, WaitType, WaitReason, WaitMode, Alertable, Timeout, WaitBlockArray);
 
-    PHANDLE NtObject = (PHANDLE)malloc(Count * sizeof(HANDLE));
+    PHANDLE Handles = (PHANDLE)malloc(Count * sizeof(HANDLE));
     for (DWORD i = 0; i < Count; i++)
-        NtObject[i] = GetDirtObject(Object[i]);
-
-    NTSTATUS Res = ::NtWaitForMultipleObjects(
-        Count, NtObject, WaitType, Alertable, Timeout
+        Handles[i] = GetDirtObject(Object[i]);
+    DWORD Milliseconds = (DWORD)(Timeout->QuadPart / -10000);
+    NTSTATUS Res = (NTSTATUS)WaitForMultipleObjectsEx(
+        Count, Handles, WaitType == WaitAll, Milliseconds, Alertable
     );
 
-    free(NtObject);
+    free(Handles);
 
     SwapTibs();
     return Res;
@@ -674,7 +674,10 @@ NTSTATUS WINAPI Dirtbox::KeWaitForSingleObject(
 
     // TODO: We gotta signal the VBlank object
 
-    ::NtWaitForSingleObject(GetDirtObject(Object), Alertable, Timeout);
+    DWORD Milliseconds = (DWORD)(Timeout->QuadPart / -10000);
+    NTSTATUS Res = (NTSTATUS)WaitForSingleObjectEx(
+        GetDirtObject(Object), Milliseconds, Alertable
+    );
 
     SwapTibs();
     return STATUS_SUCCESS;
@@ -1370,7 +1373,7 @@ NTSTATUS WINAPI Dirtbox::NtWaitForSingleObject(
 }
 
 NTSTATUS WINAPI Dirtbox::NtWaitForSingleObjectEx(
-    HANDLE Handle, CHAR WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Timeout
+    HANDLE Handle, KPROCESSOR_MODE WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Timeout
 )
 {
     SwapTibs();
@@ -1378,9 +1381,7 @@ NTSTATUS WINAPI Dirtbox::NtWaitForSingleObjectEx(
     DebugPrint("NtWaitForSingleObjectEx: 0x%08x 0x%x %i 0x%08x", 
         Handle, WaitMode, Alertable, Timeout);
 
-    NTSTATUS Res = ::NtWaitForSingleObject(
-        Handle, Alertable, Timeout
-    );
+    NTSTATUS Res = ::NtWaitForSingleObject(Handle, Alertable, Timeout);
 
     SwapTibs();
     return Res;
