@@ -648,13 +648,11 @@ NTSTATUS WINAPI Dirtbox::KeWaitForMultipleObjects(
     DebugPrint("KeWaitForMultipleObjects: 0x%x 0x%08x %i %i %i %i 0x%08x 0x%08x", 
         Count, Object, WaitType, WaitReason, WaitMode, Alertable, Timeout, WaitBlockArray);
 
+    // using the Native API because more similar
     PHANDLE Handles = (PHANDLE)malloc(Count * sizeof(HANDLE));
     for (DWORD i = 0; i < Count; i++)
         Handles[i] = GetDirtObject(Object[i]);
-    DWORD Milliseconds = (DWORD)(Timeout->QuadPart / -10000);
-    NTSTATUS Res = (NTSTATUS)WaitForMultipleObjectsEx(
-        Count, Handles, WaitType == WaitAll, Milliseconds, Alertable
-    );
+    NTSTATUS Res = ::NtWaitForMultipleObjects(Count, Handles, WaitType, Alertable, Timeout);
 
     free(Handles);
 
@@ -673,11 +671,8 @@ NTSTATUS WINAPI Dirtbox::KeWaitForSingleObject(
         Object, WaitReason, WaitMode, Alertable, Timeout);
 
     // TODO: We gotta signal the VBlank object
-
-    DWORD Milliseconds = (DWORD)(Timeout->QuadPart / -10000);
-    NTSTATUS Res = (NTSTATUS)WaitForSingleObjectEx(
-        GetDirtObject(Object), Milliseconds, Alertable
-    );
+    // using the Native API because more similar
+    NTSTATUS Res = ::NtWaitForSingleObject(GetDirtObject(Object), Alertable, Timeout);
 
     SwapTibs();
     return STATUS_SUCCESS;
@@ -769,14 +764,14 @@ PVOID WINAPI Dirtbox::MmClaimGpuInstanceMemory(
 
     DebugPrint("MmClaimGpuInstanceMemory: 0x%x 0x%08x", NumberOfBytes, NumberOfPaddingBytes);
 
-    *NumberOfPaddingBytes = PADDING_SIZE;
+    *NumberOfPaddingBytes = GPU_INST_PAD;
     if (NumberOfBytes == 0xFFFFFFFF)
         NumberOfBytes = GPU_INST_SIZE;
 
     // A hack since we're not actually returning the memory at the
     // end of physical space, but the "virtual GPU memory address."
     // Hence why I selected as 0x84000000 as new register base.
-    DWORD Res = REGISTER_BASE + NV_GPU_INST + PADDING_SIZE + GPU_INST_SIZE;
+    DWORD Res = NEW_NV_BASE + NV_GPU_INST + GPU_INST_PAD + GPU_INST_SIZE;
 
     SwapTibs();
     return (PVOID)Res;

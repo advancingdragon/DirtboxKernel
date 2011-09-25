@@ -17,10 +17,9 @@ namespace Dirtbox
     // DirtboxHacks.cpp
     extern HANDLE CurrentDirectory;
 
-    VOID InitializeException();
-    VOID InitializeDummyKernel();
     VOID InitializeUsb();
     VOID InitializeDrives();
+    VOID InitializeDummyKernel();
     BOOLEAN IsValidDosPath(PANSI_STRING String);
     NTSTATUS ConvertObjectAttributes(
         POBJECT_ATTRIBUTES Destination, PUNICODE_STRING ObjectName, PWSTR Buffer, 

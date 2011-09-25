@@ -21,14 +21,13 @@ VOID WINAPI Dirtbox::Initialize()
     // Initialize locks
     InitializeCriticalSection(&PrintLock);
 
-    InitializeException();
-    InitializeDummyKernel();
-    InitializeUsb();
-    InitializeDrives();
     InitializeThreading();
     __writefsword(NT_TIB_USER_POINTER, GetFS());
     InitializeGraphics();
     InitializeKernel();
+    InitializeUsb();
+    InitializeDrives();
+    InitializeDummyKernel();
 
     DebugPrint("Initialize: All initialized successfully, starting app.");
     SwapTibs();

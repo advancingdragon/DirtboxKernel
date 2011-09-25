@@ -678,6 +678,15 @@ typedef struct XBEIMAGE_SECTION // 0x38
     BYTE SectionDigest[0x14]; // +0x24(0x14)
 } *PXBEIMAGE_SECTION;
 
+// GPU structs
+
+typedef struct NV_VTEST
+{
+    DWORDLONG Timestamp;
+    DWORD Result;
+    LONG Status;
+} *PNV_VTEST;
+
 // Windows NT structs
 
 typedef struct OBJECT_ATTRIBUTES

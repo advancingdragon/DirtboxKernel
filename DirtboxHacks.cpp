@@ -3,12 +3,6 @@
 #include "DirtboxEmulator.h"
 #include "Native.h"
 
-#define OP_TWO_BYTE 0x0F
-#define OP_IN 0xEC
-#define OP_OUT 0xEE
-
-#define OP2_WBINVD 0x09
-
 namespace Dirtbox
 {
     typedef struct DUMMY_KERNEL
@@ -20,89 +14,16 @@ namespace Dirtbox
     } *PDUMMY_KERNEL;
 
     HANDLE CurrentDirectory;
-
-    LONG WINAPI ExceptionHandler(PEXCEPTION_POINTERS ExceptionInfo);
-}
-
-// Exception handler that skips over privileged instructions
-LONG WINAPI Dirtbox::ExceptionHandler(PEXCEPTION_POINTERS ExceptionInfo)
-{
-    PEXCEPTION_RECORD Except = ExceptionInfo->ExceptionRecord;
-    PCONTEXT Context = ExceptionInfo->ContextRecord;
-
-    switch (Except->ExceptionCode)
-    {
-    case EXCEPTION_PRIV_INSTRUCTION:
-        {
-            // The only privileged instructions that we encounter here are
-            // in, out, and wbinvd.
-            BYTE Opcode = *(BYTE *)Context->Eip;
-            Context->Eip += 1;
-
-            switch (Opcode)
-            {
-            case OP_TWO_BYTE:
-                Opcode = *(BYTE *)Context->Eip;
-                Context->Eip += 1;
-                if (Opcode == OP2_WBINVD)
-                    break;
-                else
-                    return EXCEPTION_CONTINUE_SEARCH;
-                break;
-            case OP_IN:
-                Context->Eax &= 0xFFFFFF00;
-                break;
-            case OP_OUT:
-                break;
-            default:
-                return EXCEPTION_CONTINUE_SEARCH;
-            }
-            return EXCEPTION_CONTINUE_EXECUTION;
-        }
-
-    default:
-        return EXCEPTION_CONTINUE_SEARCH;
-    }
-}
-
-VOID Dirtbox::InitializeException()
-{
-    if (AddVectoredExceptionHandler(1, &ExceptionHandler) == NULL)
-        FatalPrint("InitializeException: Could not add exception handler.");
-
-    DebugPrint("InitializeException: Exception handler added successfully.");
-}
-
-// this is needed to satisfy XapiRestrictCodeSelectorLimit in the runtime.
-VOID Dirtbox::InitializeDummyKernel()
-{
-    PDUMMY_KERNEL DummyKernel = (PDUMMY_KERNEL)VirtualAlloc(
-        (PVOID)DUMMY_KERNEL_ADDRESS, sizeof(DUMMY_KERNEL), 
-        MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE
-    );
-    if (DummyKernel == NULL)
-        FatalPrint("InitializeDummyKernel: Could not allocate dummy kernel.");
-    memset(DummyKernel, 0, sizeof(DUMMY_KERNEL));
-
-    // XapiRestrictCodeSelectorLimit only checks these fields.
-    DummyKernel->DosHeader.e_lfanew = sizeof(IMAGE_DOS_HEADER); // RVA of NtHeaders
-    DummyKernel->FileHeader.SizeOfOptionalHeader = 0;
-    DummyKernel->FileHeader.NumberOfSections = 1;
-    // as long as this doesn't start with "INIT"
-    strncpy_s((PSTR)DummyKernel->SectionHeader.Name, 8, "DONGS", 8);
-
-    DebugPrint("InitializeDummyKernel: Dummy kernel initialized successfully.");
 }
 
 VOID Dirtbox::InitializeUsb()
 {
-    PVOID UsbRegisters = (PDUMMY_KERNEL)VirtualAlloc(
-        (PVOID)0x86000000, 0x10000, 
-        MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE
+    PVOID UsbRegisters = VirtualAlloc(
+        (PVOID)NEW_USB_BASE, NEW_USB_SIZE, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE
     );
     if (UsbRegisters == NULL)
         FatalPrint("InitializeUsb: Could not allocate USB registers.");
-    memset(UsbRegisters, 0, 0x10000);
+    memset(UsbRegisters, 0, NEW_USB_SIZE);
 
     DebugPrint("InitializeUsb: USB registers initialized successfully.");
 }
@@ -129,6 +50,26 @@ VOID Dirtbox::InitializeDrives()
     CreateDirectoryA("Dummy", NULL);
 
     DebugPrint("InitializeDrives: Virtual drives initialized successfully.");
+}
+
+// this is needed to satisfy XapiRestrictCodeSelectorLimit in the runtime.
+VOID Dirtbox::InitializeDummyKernel()
+{
+    PDUMMY_KERNEL DummyKernel = (PDUMMY_KERNEL)VirtualAlloc(
+        (PVOID)DUMMY_KERNEL_BASE, sizeof(DUMMY_KERNEL), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE
+    );
+    if (DummyKernel == NULL)
+        FatalPrint("InitializeDummyKernel: Could not allocate dummy kernel.");
+    memset(DummyKernel, 0, sizeof(DUMMY_KERNEL));
+
+    // XapiRestrictCodeSelectorLimit only checks these fields.
+    DummyKernel->DosHeader.e_lfanew = sizeof(IMAGE_DOS_HEADER); // RVA of NtHeaders
+    DummyKernel->FileHeader.SizeOfOptionalHeader = 0;
+    DummyKernel->FileHeader.NumberOfSections = 1;
+    // as long as this doesn't start with "INIT"
+    strncpy_s((PSTR)DummyKernel->SectionHeader.Name, 8, "DONGS", 8);
+
+    DebugPrint("InitializeDummyKernel: Dummy kernel initialized successfully.");
 }
 
 BOOLEAN Dirtbox::IsValidDosPath(PANSI_STRING String)

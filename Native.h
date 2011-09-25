@@ -110,6 +110,11 @@ NTSTATUS WINAPI NtSuspendThread(
     HANDLE ThreadHandle, PDWORD PreviousSuspendCount
 );
 
+NTSTATUS WINAPI NtWaitForMultipleObjects(
+    DWORD HandleCount, PHANDLE Handles, WAIT_TYPE WaitType, BOOLEAN Alertable, 
+    PLARGE_INTEGER Timeout
+);
+
 DWORD WINAPI NtWaitForSingleObject(
     HANDLE ObjectHandle, BOOLEAN Alertable, PLARGE_INTEGER Timeout
 );
