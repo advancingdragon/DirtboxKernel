@@ -88,8 +88,8 @@ UINT WINAPI Dirtbox::GraphicsThreadCallback(PVOID Parameter)
                         break;
                     case 0x17CC:
                         {
-                            DWORD Arg2 = PHY32(Dma + 4);
-                            PNV_VTEST VTest = (PNV_VTEST)PHY32(Arg2 & 0x0EFFFFFF);
+                            DWORD Phy = PHY32(Dma + 4) & 0x0EFFFFFF;
+                            PNV_VTEST VTest = (PNV_VTEST)(0x80000000 | Phy);
                             VTest->Timestamp = 0;
                             VTest->Result = 10000;
                             VTest->Status = 0;
