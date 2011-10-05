@@ -246,7 +246,7 @@ NTSTATUS WINAPI Dirtbox::IoCreateSymbolicLink(
     DebugPrint("IoCreateSymbolicLink: \"%s\" \"%s\"", 
         SymbolicLinkName->Buffer, DeviceName->Buffer);
 
-    // We can ignore this so far, since DOS drives created already.
+    // Can ignore this so far, since DOS drives created already.
 
     SwapTibs();
     return STATUS_SUCCESS;
@@ -283,10 +283,24 @@ BOOLEAN WINAPI Dirtbox::KeConnectInterrupt(
 
     DebugPrint("KeConnectInterrupt: 0x%08x", Interrupt);
 
-    if (Interrupt->Connected)
+    if (Interrupt->Connected) // already connected?
     {
         SwapTibs();
         return FALSE;
+    }
+
+    // is it the GPU interrupt?
+    if (Interrupt->BusInterruptLevel == 3)
+    {
+        HANDLE Thread;
+        BOOLEAN Duplicated = DuplicateHandle(
+            GetCurrentProcess(), GetCurrentThread(), GetCurrentProcess(), &Thread, 
+            0, FALSE, DUPLICATE_SAME_ACCESS
+        );
+        if (!Duplicated)
+            FatalPrint("KeConnectInterrupt: Failed to duplicate; %i.", GetLastError());
+        Interrupt->DispatchCode[21] = (DWORD)Thread;
+        NvInterrupt = Interrupt;
     }
 
     Interrupt->Connected = TRUE;
@@ -316,10 +330,17 @@ BOOLEAN WINAPI Dirtbox::KeDisconnectInterrupt(
     SwapTibs();
     DebugPrint("KeDisconnectInterrupt: 0x%08x", Interrupt);
 
-    if (!Interrupt->Connected)
+    if (!Interrupt->Connected) // already disconnected?
     {
         SwapTibs();
         return FALSE;
+    }
+
+    // is it the GPU interrupt?
+    if (Interrupt->BusInterruptLevel == 3 && Interrupt == NvInterrupt)
+    {
+        CloseHandle((HANDLE)NvInterrupt->DispatchCode[21]);
+        NvInterrupt = NULL;
     }
 
     Interrupt->Connected = FALSE;
@@ -420,6 +441,8 @@ BOOLEAN WINAPI Dirtbox::KeInsertQueueDpc(
     Dpc->Inserted = TRUE;
 
     SwapTibs();
+    // just call the DPC
+    Dpc->DeferredRoutine(Dpc, Dpc->DeferredContext, SystemArgument1, SystemArgument2);
     return TRUE;
 }
 
@@ -494,7 +517,7 @@ BOOLEAN WINAPI Dirtbox::KeRemoveQueueDpc(
         return FALSE;
     }
 
-    // TODO the rest
+    // Implementation not needed, since only thing DPC used for is VBlank
     Dpc->Inserted = FALSE;
 
     SwapTibs();
@@ -675,7 +698,7 @@ NTSTATUS WINAPI Dirtbox::KeWaitForSingleObject(
     NTSTATUS Res = ::NtWaitForSingleObject(GetDirtObject(Object), Alertable, Timeout);
 
     SwapTibs();
-    return STATUS_SUCCESS;
+    return Res;
 }
 
 DWORD __fastcall Dirtbox::KfRaiseIrql(KIRQL NewIrql)
@@ -1487,7 +1510,8 @@ NTSTATUS WINAPI Dirtbox::PsCreateSystemThreadEx(
     Is it better to use _beginthreadex, CreateThread, or NtCreateThread?
     */
     HANDLE Thr = (HANDLE)_beginthreadex(
-        NULL, KernelStackSize + 0x1000, &ShimCallback, ShimContext, Flags, NULL
+        NULL, KernelStackSize + 0x1000, &ShimThreadRoutine, ShimContext, 
+        Flags, (unsigned int *)ThreadId
     );
     if (Thr == 0)
     {
@@ -1509,7 +1533,7 @@ VOID WINAPI Dirtbox::PsTerminateSystemThread(
 
     DebugPrint("PsTerminateSystemThread: %i", ExitStatus);
     
-    // like the same thing as in ShimCallback
+    // like the same thing as in ShimThreadRoutine
     FreeTib();
 
     _endthreadex(ExitStatus);
@@ -1562,7 +1586,7 @@ NTSTATUS WINAPI Dirtbox::RtlEnterCriticalSection(
         //        OwningThread is NULL here!
 
         // We don't own it, so we must wait for it
-        ::NtWaitForSingleObject(GetDirtObject(CriticalSection), TRUE, NULL);
+        WaitForSingleObject(GetDirtObject(CriticalSection), INFINITE);
     }
 
     // Lock successful. Changing this information has not to be serialized because
@@ -1649,7 +1673,7 @@ NTSTATUS WINAPI Dirtbox::RtlLeaveCriticalSection(
 
         // Was someone wanting us? This needs to be done atomically.
         if (InterlockedDecrement(&CriticalSection->LockCount) != -1)
-            ::NtSetEvent(GetDirtObject(CriticalSection), NULL);
+            SetEvent(GetDirtObject(CriticalSection));
     }
 
     SwapTibs();

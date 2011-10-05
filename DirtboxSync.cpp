@@ -7,8 +7,6 @@
 
 // NOTE: The current method of simulating kernel synchronization objects
 // with named Windows objects is leaky since objects are never destroyed.
-
-// TODO: use Native API
 HANDLE Dirtbox::GetDirtObject(PVOID Object)
 {
     CHAR ObjectName[DIRT_NAME_SIZE];

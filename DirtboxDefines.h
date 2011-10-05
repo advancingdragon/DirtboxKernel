@@ -27,8 +27,8 @@
 #define NEW_USB_BASE        0x86000000
 
 #define DMA_SIZE            0x00001000
-#define NEW_NV_SIZE         0x00900000
-#define NEW_USB_SIZE        0x00001000
+#define NV_SIZE             0x00900000
+#define USB_SIZE            0x00001000
 
 #define NV_PFIFO_RAMHT          0x002210
 #define NV_PFIFO_RAMFC          0x002214

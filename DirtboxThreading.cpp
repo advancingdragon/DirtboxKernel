@@ -33,10 +33,10 @@ WORD Dirtbox::GetFS()
 
 // The million dollar question here is: is NT_TIB.StackBase required 
 // to be aligned?
-UINT WINAPI Dirtbox::ShimCallback(PVOID ShimContextPtr)
+UINT WINAPI Dirtbox::ShimThreadRoutine(PVOID Param)
 {
-    SHIM_CONTEXT ShimContext = *(PSHIM_CONTEXT)ShimContextPtr;
-    free(ShimContextPtr);
+    SHIM_CONTEXT ShimContext = *(PSHIM_CONTEXT)Param;
+    free(Param);
 
     PNT_TIB OldNtTib = (PNT_TIB)__readfsdword(NT_TIB_SELF);
     PBYTE Tls;
@@ -75,7 +75,7 @@ UINT WINAPI Dirtbox::ShimCallback(PVOID ShimContextPtr)
 
     ShimContext.SystemRoutine(ShimContext.StartRoutine, ShimContext.StartContext);
 
-    FatalPrint("ShimCallback: Should never get here.");
+    FatalPrint("ShimThreadRoutine: Should never get here.");
     return 0;
 }
 

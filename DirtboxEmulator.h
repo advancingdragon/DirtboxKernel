@@ -16,10 +16,10 @@ namespace Dirtbox
 
     // DirtboxHacks.cpp
     extern HANDLE CurrentDirectory;
-
     VOID InitializeUsb();
     VOID InitializeDrives();
     VOID InitializeDummyKernel();
+    VOID WINAPI InterruptAPC(DWORD_PTR Param);
     BOOLEAN IsValidDosPath(PANSI_STRING String);
     NTSTATUS ConvertObjectAttributes(
         POBJECT_ATTRIBUTES Destination, PUNICODE_STRING ObjectName, PWSTR Buffer, 
@@ -37,7 +37,7 @@ namespace Dirtbox
 
     VOID InitializeThreading();
     WORD GetFS();
-    UINT WINAPI ShimCallback(PVOID ShimCtxPtr);
+    UINT WINAPI ShimThreadRoutine(PVOID Param);
     NTSTATUS FreeTib();
     static inline VOID SwapTibs()
     {
@@ -49,6 +49,7 @@ namespace Dirtbox
     }
 
     // DirtboxGraphics.cpp
+    extern PKINTERRUPT NvInterrupt;
     VOID InitializeGraphics();
 
     // DirtboxSync.cpp

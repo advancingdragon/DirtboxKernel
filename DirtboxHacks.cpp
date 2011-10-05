@@ -13,17 +13,17 @@ namespace Dirtbox
         IMAGE_SECTION_HEADER SectionHeader;
     } *PDUMMY_KERNEL;
 
-    HANDLE CurrentDirectory;
+    HANDLE CurrentDirectory = NULL;
 }
 
 VOID Dirtbox::InitializeUsb()
 {
     PVOID UsbRegisters = VirtualAlloc(
-        (PVOID)NEW_USB_BASE, NEW_USB_SIZE, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE
+        (PVOID)NEW_USB_BASE, USB_SIZE, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE
     );
     if (UsbRegisters == NULL)
         FatalPrint("InitializeUsb: Could not allocate USB registers.");
-    memset(UsbRegisters, 0, NEW_USB_SIZE);
+    memset(UsbRegisters, 0, USB_SIZE);
 
     DebugPrint("InitializeUsb: USB registers initialized successfully.");
 }
@@ -72,6 +72,19 @@ VOID Dirtbox::InitializeDummyKernel()
     DebugPrint("InitializeDummyKernel: Dummy kernel initialized successfully.");
 }
 
+VOID WINAPI Dirtbox::InterruptAPC(DWORD_PTR Param)
+{
+    // at first we are in NT TIB
+    DebugPrint("InterruptAPC: 0x%08x", Param);
+
+    SwapTibs();
+
+    PKINTERRUPT Interrupt = (PKINTERRUPT)Param;
+    Interrupt->ServiceRoutine(Interrupt, Interrupt->ServiceContext);
+
+    SwapTibs();
+}
+
 BOOLEAN Dirtbox::IsValidDosPath(PANSI_STRING String)
 {
     return String->Length >= 3 &&
@@ -99,23 +112,6 @@ NTSTATUS Dirtbox::ConvertObjectAttributes(
 
         // ':' is not an allowed char in names, so replace it with _
         ObjectName->Buffer[1] = L'_';
-
-        /*
-        // D:\ refers to current directory
-        if (ObjectName->Buffer[0] == L'D' || ObjectName->Buffer[0] == L'd')
-        {
-            // remove D:\ in the beginning of string
-            ObjectName->Length -= 3;
-            for (SHORT i = 0; i < ObjectName->Length; i++)
-                ObjectName->Buffer[i] = ObjectName->Buffer[i + 3];
-            ObjectName->Buffer[ObjectName->Length + 1] = L'\0';
-        }
-        else
-        {
-            // ':' is not an allowed char in names, so replace it with _
-            ObjectName->Buffer[1] = L'_';
-        }
-        */
     }
     else if (Source->RootDirectory == NULL)
     {
