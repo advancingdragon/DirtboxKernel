@@ -672,10 +672,11 @@ NTSTATUS WINAPI Dirtbox::KeWaitForMultipleObjects(
         Count, Object, WaitType, WaitReason, WaitMode, Alertable, Timeout, WaitBlockArray);
 
     // using the Native API because more similar
+    // Alertable always TRUE so interrupts can get called
     PHANDLE Handles = (PHANDLE)malloc(Count * sizeof(HANDLE));
     for (DWORD i = 0; i < Count; i++)
         Handles[i] = GetDirtObject(Object[i]);
-    NTSTATUS Res = ::NtWaitForMultipleObjects(Count, Handles, WaitType, Alertable, Timeout);
+    NTSTATUS Res = ::NtWaitForMultipleObjects(Count, Handles, WaitType, TRUE, Timeout);
 
     free(Handles);
 
@@ -693,9 +694,9 @@ NTSTATUS WINAPI Dirtbox::KeWaitForSingleObject(
     DebugPrint("KeWaitForSingleObject: 0x%08x %i %i %i 0x%08x", 
         Object, WaitReason, WaitMode, Alertable, Timeout);
 
-    // TODO: We gotta signal the VBlank object
     // using the Native API because more similar
-    NTSTATUS Res = ::NtWaitForSingleObject(GetDirtObject(Object), Alertable, Timeout);
+    // Alertable always TRUE so interrupts can get called
+    NTSTATUS Res = ::NtWaitForSingleObject(GetDirtObject(Object), TRUE, Timeout);
 
     SwapTibs();
     return Res;
